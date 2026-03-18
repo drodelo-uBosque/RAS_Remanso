@@ -3,7 +3,6 @@ pandas
 numpy
 joblib
 requests
-firebase-admin
 plotly
 scikit-learn
 xgboost
