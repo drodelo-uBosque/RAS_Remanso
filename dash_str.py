@@ -35,7 +35,7 @@ def enviar_telegram(mensaje):
 # =========================================================
 # 2. LOGIN Y CONFIGURACIÓN DE PÁGINA
 # =========================================================
-st.set_page_config(page_title="RAS AI Monitor - UDCA", layout="wide")
+st.set_page_config(page_title="Plataforma de Monitoreo RAS El Remanso", layout="wide")
 
 # CARGAR Y MOSTRAR LOGO EN EL SIDEBAR
 # Asegúrate de que 'logo_udca.png' esté en tu repo de GitHub
@@ -63,7 +63,7 @@ if not st.session_state.auth:
 # =========================================================
 # 3. INTERFAZ Y CONTENEDORES (EVITA NAMEERROR)
 # =========================================================
-st.title("🐟 Monitoreo Inteligente RAS con XGBoost")
+st.title("Sistema de Monitoreo - Modelo ML predictivo")
 
 # Sidebar
 st.sidebar.title("⚙️ Panel de Control")
