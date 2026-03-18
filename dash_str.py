@@ -5,7 +5,7 @@ import joblib
 import time
 import requests
 from datetime import datetime, timedelta
-import plotly.graph_objects as go go
+import plotly.graph_objects as go 
 
 # =========================================================
 # 1. CONFIGURACIÓN Y MODELO (SIN FIREBASE-ADMIN)
