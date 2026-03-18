@@ -45,7 +45,7 @@ if not st.session_state.auth:
 # =========================================================
 # 3. DEFINICIÓN DE INTERFAZ (EVITA EL NAMEERROR)
 # =========================================================
-st.title("🐟 Monitoreo Realtime + Predicción XGBoost")
+st.title("Monitoreo Realtime + Predicción XGBoost")
 
 # Sidebar para controles y descarga
 st.sidebar.title("⚙️ Configuración")
