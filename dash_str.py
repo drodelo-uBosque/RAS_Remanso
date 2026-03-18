@@ -145,8 +145,3 @@ while True:
     chart_p.plotly_chart(crear_grafica(st.session_state.hist_v, "P_R", "P_P", "crimson", "Nivel de pH"), use_container_width=True)
 
     time.sleep(refresco)
-
-    chart_t.plotly_chart(crear_fig(st.session_state.hist_v, "T_R", "T_P", "orange", "Temperatura (°C)"), use_container_width=True)
-    chart_p.plotly_chart(crear_fig(st.session_state.hist_v, "P_R", "P_P", "crimson", "Nivel de pH"), use_container_width=True)
-
-    time.sleep(refresco)
