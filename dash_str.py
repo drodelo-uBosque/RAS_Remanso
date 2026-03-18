@@ -118,6 +118,30 @@ while True:
     tf = t_now + float(mod_t.predict(df_in)[0] * sensibilidad)
     pf = p_now + float(mod_p.predict(df_in)[0] * sensibilidad)
 
+    # --- BLOQUE DE ALERTAS REINSTALADO ---
+    errores = []
+    # Alerta basada en la PREDICCIÓN (IA se adelanta al problema)
+    if tf < TEMP_MIN or tf > TEMP_MAX: 
+        errores.append(f"🌡️ IA predice Temp Crítica: {tf:.2f}°C")
+    
+    if pf < PH_MIN or pf > PH_MAX: 
+        errores.append(f"🧪 IA predice pH Crítico: {pf:.2f}")
+
+    # Control de tiempo para no saturar el Telegram (cada 15 min)
+    if 'ultimo_aviso' not in st.session_state:
+        st.session_state.ultimo_aviso = ahora - timedelta(minutes=20)
+
+    mins_desde_alerta = (ahora - st.session_state.ultimo_aviso).total_seconds() / 60
+
+    if errores:
+        alerta_ui.error("🚨 **ALERTA DETECTADA POR IA:**\n" + "\n".join(errores))
+        if mins_desde_alerta > 15:
+            mensaje_bot = "🚨 *AVISO SISTEMA RAS*\n" + "\n".join(errores)
+            enviar_telegram(mensaje_bot)
+            st.session_state.ultimo_aviso = ahora
+    else:
+        alerta_ui.success("✅ Sistema Estable: Tanque en condiciones óptimas")
+
     # C. Actualizar Métricas (Ya no dará NameError)
     t_met.metric("🌡️ TEMP ACTUAL", f"{t_now:.2f}°C")
     p_met.metric("🧪 PH ACTUAL", f"{p_now:.2f}")
