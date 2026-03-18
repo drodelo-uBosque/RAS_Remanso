@@ -23,17 +23,29 @@ def enviar_telegram(mensaje):
     except: pass
 
 # =========================================================
-# 2. INICIALIZACIÓN DE SERVICIOS
+# 2. INICIALIZACIÓN DE FIREBASE (MODO NUBE)
 # =========================================================
 @st.cache_resource
 def iniciar_servicios():
     if not firebase_admin._apps:
-        cred = credentials.Certificate("llave_firebase.json")
-        firebase_admin.initialize_app(cred, {
-            # URL actualizada de tu proyecto
-            'databaseURL': 'https://ras-udca-default-rtdb.firebaseio.com/'
-        })
+        try:
+            # En la nube, leemos directamente de los Secrets de Streamlit
+            # Esto evita el error de "Invalid JWT Signature"
+            firebase_secrets = dict(st.secrets["firebase"])
+            
+            # Corregimos posibles errores de formato en la clave privada
+            firebase_secrets["private_key"] = firebase_secrets["private_key"].replace("\\n", "\n")
+            
+            cred = credentials.Certificate(firebase_secrets)
+            firebase_admin.initialize_app(cred, {
+                'databaseURL': 'https://ras-udca-default-rtdb.firebaseio.com/'
+            })
+            st.sidebar.success("✅ Conexión Nube OK")
+        except Exception as e:
+            st.error(f"🔥 Error en Secrets: {e}")
+            st.stop()
     
+    # Carga de IA
     p = joblib.load('sistema_ras_completo.pkl')
     return p['modelo_temp'], p['modelo_ph'], p['columnas']
 
