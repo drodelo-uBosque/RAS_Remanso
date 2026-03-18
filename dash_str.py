@@ -95,15 +95,12 @@ if 'hist' not in st.session_state:
 
 # Botón de Descarga de Historial Real de la Nube
 with st.sidebar.expander("📥 Datos de la Nube"):
-    if st.button("Descargar CSV"):
-        raw_data = rtdb.reference('/sensores/temperatura/historial').get()
-        if raw_data:
-            df_nube = pd.DataFrame(list(raw_data.values()))
-            # Convertir timestamp a fecha legible de Bogotá
-            if 'tiempo' in df_nube.columns:
-                df_nube['fecha'] = pd.to_datetime(df_nube['tiempo'], unit='ms').dt.tz_localize('UTC').dt.tz_convert('America/Bogota')
-            csv = df_nube.to_csv(index=False).encode('utf-8')
-            st.download_button("Descargar Archivo", csv, "historial_ras.csv", "text/csv", key="btn_descarga")
+    if st.button("Obtener Historial"):
+        # Leemos la rama de historial completa
+        r = requests.get("https://ras-udca-default-rtdb.firebaseio.com/sensores/temperatura/historial/.json")
+        if r.status_code == 200 and r.json():
+            df_nube = pd.DataFrame(list(r.json().values()))
+            st.download_button("Descargar CSV", df_nube.to_csv().encode('utf-8'), "datos.csv")
 
 st.title("🐟 Monitoreo Realtime + Predicción XGBoost")
 alerta_ui = st.empty()
