@@ -84,6 +84,13 @@ if 'hist_v' not in st.session_state:
 if 'ultimo_aviso' not in st.session_state:
     st.session_state.ultimo_aviso = datetime.now() - timedelta(minutes=20)
 
+
+
+# --- EN EL SIDEBAR (Antes del while True) ---
+st.sidebar.title("⚙️ Panel de Control")
+status_sensor = st.sidebar.empty() # <--- Este será nuestro contenedor único
+
+
 # =========================================================
 # 4. BUCLE DE EJECUCIÓN
 # =========================================================
@@ -91,13 +98,17 @@ while True:
     ahora = datetime.now()
     
     # A. Lectura de Firebase
+   # --- DENTRO DEL BUCLE while True ---
     try:
         resp = requests.get(URL_ACTUAL, timeout=5)
-        t_now = float(resp.json()) if resp.status_code == 200 and resp.json() else 22.0
-        st.sidebar.success(f"📡 Sensor Online: {t_now}°C")
+        if resp.status_code == 200:
+            t_now = float(resp.json())
+            # USAMOS EL CONTENEDOR: se sobreescribe, no se acumula
+            status_sensor.success(f"📡 Sensor Online: {t_now}°C")
+        else:
+            status_sensor.warning("⚠️ Datos no encontrados")
     except:
-        t_now = 22.0
-        st.sidebar.error("❌ Error de Conexión")
+        status_sensor.error("❌ Error de Conexión")
 
     # B. Procesamiento IA
     p_now = 7.4 + np.random.uniform(-0.01, 0.01) # Simulación estable de pH
