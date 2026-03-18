@@ -37,6 +37,14 @@ def enviar_telegram(mensaje):
 # =========================================================
 st.set_page_config(page_title="RAS AI Monitor - UDCA", layout="wide")
 
+# CARGAR Y MOSTRAR LOGO EN EL SIDEBAR
+# Asegúrate de que 'logo_udca.png' esté en tu repo de GitHub
+try:
+    st.sidebar.image("logo.png", use_container_width=True)
+except:
+    # Si la imagen no carga, no rompe la app
+    st.sidebar.warning("⚠️ No se pudo cargar el logo.")
+
 if "auth" not in st.session_state:
     st.session_state.auth = False
 
