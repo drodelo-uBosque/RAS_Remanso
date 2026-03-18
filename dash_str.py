@@ -26,6 +26,29 @@ mod_t, mod_p, cols_modelo = cargar_modelo()
 # =========================================================
 # 2. BUCLE DE MONITOREO (CONEXIÓN DIRECTA)
 # =========================================================
+
+# --- CONFIGURACIÓN DE LA INTERFAZ ---
+st.title("🐟 Monitoreo Realtime + Predicción XGBoost")
+alerta_ui = st.empty()
+
+# Definimos las columnas y los contenedores vacíos (IMPORTANTE)
+m1, m2, m3, m4 = st.columns(4)
+t_met = m1.empty()   # <--- Aquí se crea t_met
+p_met = m2.empty()
+ti_met = m3.empty()
+pi_met = m4.empty()
+
+chart_t = st.empty()
+chart_p = st.empty()
+
+# --- BUCLE DE MONITOREO ---
+while True:
+    ahora = datetime.now()
+    # ... (Tu lógica de lectura de requests.get) ...
+    
+    # Ahora sí puedes usarlos:
+    t_met.metric("🌡️ TEMP ACTUAL", f"{t_now:.2f}°C")
+
 while True:
     ahora = datetime.now()
     
