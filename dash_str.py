@@ -4,52 +4,62 @@ import numpy as np
 import joblib
 import time
 import requests
-import firebase_admin
-from firebase_admin import credentials, db as rtdb
 from datetime import datetime, timedelta
-import plotly.graph_objects as go
+import plotly.graph_objects as go go
 
 # =========================================================
-# 1. CONFIGURACIÓN DE SEGURIDAD Y TELEGRAM
+# 1. CONFIGURACIÓN Y MODELO (SIN FIREBASE-ADMIN)
 # =========================================================
-TOKEN_TELEGRAM = "TU_TOKEN_AQUI"
-CHAT_ID_TELEGRAM = "TU_ID_AQUI"
-TEMP_MIN, TEMP_MAX = 22.0, 30.0
-PH_MIN, PH_MAX = 6.8, 8.2
+# URL de tu base de datos con ".json" al final (IMPORTANTE)
+URL_BASE = "https://ras-udca-default-rtdb.firebaseio.com/.json"
+URL_ACTUAL = "https://ras-udca-default-rtdb.firebaseio.com/sensores/temperatura/actual/.json"
 
-def enviar_telegram(mensaje):
-    url = f"https://api.telegram.org/bot{TOKEN_TELEGRAM}/sendMessage?chat_id={CHAT_ID_TELEGRAM}&text={mensaje}&parse_mode=Markdown"
-    try: requests.get(url)
-    except: pass
-
-# =========================================================
-# 2. INICIALIZACIÓN DE FIREBASE (MODO NUBE)
-# =========================================================
 @st.cache_resource
-def iniciar_servicios():
-    if not firebase_admin._apps:
-        try:
-            # En la nube, leemos directamente de los Secrets de Streamlit
-            # Esto evita el error de "Invalid JWT Signature"
-            firebase_secrets = dict(st.secrets["firebase"])
-            
-            # Corregimos posibles errores de formato en la clave privada
-            firebase_secrets["private_key"] = firebase_secrets["private_key"].replace("\\n", "\n")
-            
-            cred = credentials.Certificate(firebase_secrets)
-            firebase_admin.initialize_app(cred, {
-                'databaseURL': 'https://ras-udca-default-rtdb.firebaseio.com/'
-            })
-            st.sidebar.success("✅ Conexión Nube OK")
-        except Exception as e:
-            st.error(f"🔥 Error en Secrets: {e}")
-            st.stop()
-    
-    # Carga de IA
+def cargar_modelo():
     p = joblib.load('sistema_ras_completo.pkl')
     return p['modelo_temp'], p['modelo_ph'], p['columnas']
 
-mod_t, mod_p, cols_modelo = iniciar_servicios()
+mod_t, mod_p, cols_modelo = cargar_modelo()
+
+# ... (Mantén tu código de login igual aquí) ...
+
+# =========================================================
+# 2. BUCLE DE MONITOREO (CONEXIÓN DIRECTA)
+# =========================================================
+while True:
+    ahora = datetime.now()
+    
+    try:
+        # LEEMOS DIRECTAMENTE POR URL (Sin llaves, sin errores JWT)
+        respuesta = requests.get(URL_ACTUAL)
+        
+        if respuesta.status_code == 200:
+            data = respuesta.json()
+            # Si el ESP32 manda un número directo:
+            t_now = float(data) if data is not None else 22.0
+            st.sidebar.success(f"📡 Conectado (REST): {t_now}°C")
+        else:
+            t_now = 22.0
+            st.sidebar.error("⚠️ Error de respuesta de Firebase")
+            
+    except Exception as e:
+        t_now = 22.0
+        st.sidebar.error(f"❌ Error de red: {e}")
+
+    # --- C. PROYECCIÓN IA (Igual que antes) ---
+    p_now = 7.4 + np.random.uniform(-0.02, 0.02)
+    df_in = pd.DataFrame([[t_now, p_now, 1.0]], columns=['temperatura', 'ph', 'horas_transcurridas'])
+    for c in cols_modelo:
+        if c not in df_in.columns: df_in[c] = 0
+    df_in = df_in[cols_modelo]
+
+    tf = t_now + float(mod_t.predict(df_in)[0])
+    pf = p_now + float(mod_p.predict(df_in)[0])
+
+    # ... (El resto del código de métricas y gráficas es IGUAL) ...
+    t_met.metric("🌡️ TEMP ACTUAL", f"{t_now:.2f}°C")
+    # ...
+    time.sleep(5)
 
 # =========================================================
 # 3. INTERFAZ Y LOGIN
