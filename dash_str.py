@@ -7,6 +7,21 @@ import requests
 from datetime import datetime, timedelta
 import plotly.graph_objects as go
 
+
+# =========================================================
+# CONFIGURACIÓN DE ALERTAS (BOGOTÁ / UDCA)
+# =========================================================
+TOKEN_TELEGRAM = "TU_TOKEN_AQUI"
+CHAT_ID_TELEGRAM = "TU_ID_AQUI"
+TEMP_MIN, TEMP_MAX = 22.0, 30.0
+PH_MIN, PH_MAX = 6.8, 8.2
+
+def enviar_telegram(mensaje):
+    url = f"https://api.telegram.org/bot{TOKEN_TELEGRAM}/sendMessage?chat_id={CHAT_ID_TELEGRAM}&text={mensaje}&parse_mode=Markdown"
+    try:
+        requests.get(url)
+    except:
+        pass
 # =========================================================
 # 1. CONFIGURACIÓN Y RECURSOS
 # =========================================================
