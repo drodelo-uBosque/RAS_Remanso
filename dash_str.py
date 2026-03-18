@@ -67,10 +67,23 @@ st.title("Sistema de Monitoreo - Modelo ML predictivo")
 
 # Sidebar
 st.sidebar.title("⚙️ Panel de Control")
+
+st.sidebar.markdown("---")
+st.sidebar.subheader("📊 Visualización")
+puntos_vista = st.sidebar.slider("Número de mediciones visibles:", 5, 100, 20)
+
 sensibilidad = st.sidebar.slider("Sensibilidad IA", 0.5, 1.5, 1.0)
 horas_pred = st.sidebar.slider("Horizonte de Predicción (Horas)", 0.5, 12.0, 1.0, step=0.5)
 refresco = st.sidebar.slider("Refresco (seg)", 5, 60, 10)
 
+
+st.sidebar.markdown("---") # Una línea divisoria para que se vea ordenado
+if st.sidebar.button("🗑️ Limpiar Gráficas"):
+    # Reiniciamos el DataFrame del historial
+    st.session_state.hist_v = pd.DataFrame(columns=["Hora", "T_R", "T_P", "P_R", "P_P"])
+    # Forzamos a Streamlit a recargar para que las gráficas se vean vacías de inmediato
+    st.rerun()
+    
 with st.sidebar.expander("📥 Exportar Datos"):
     if st.button("Descargar Historial CSV"):
         r_hist = requests.get(URL_HISTORIAL)
@@ -151,7 +164,7 @@ while True:
 
     # E. Gráficas
     nueva_fila = pd.DataFrame({"Hora":[ahora.strftime("%H:%M:%S")],"T_R":[t_now],"T_P":[tf],"P_R":[p_now],"P_P":[pf]})
-    st.session_state.hist_v = pd.concat([st.session_state.hist_v, nueva_fila]).tail(20)
+    st.session_state.hist_v = pd.concat([st.session_state.hist_v, nueva_fila]).tail(puntos_vista)
 
     def crear_grafica(df, col_r, col_p, color, titulo):
         fig = go.Figure()
