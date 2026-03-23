@@ -30,35 +30,43 @@ def iniciar_servicios():
     ruta_json = "llave_firebase.json"
     ruta_pkl = "sistema_ras_completo.pkl"
     
-    # 1. Verificar Firebase
+    # 1. Verificación de archivos físicos en el servidor
+    import os
+    if not os.path.exists(ruta_json) or not os.path.exists(ruta_pkl):
+        st.error(f"⚠️ Error: Faltan archivos en el repositorio. Asegúrate de subir {ruta_json} y {ruta_pkl}")
+        st.stop()
+
+    # 2. Inicializar Firebase
     if not firebase_admin._apps:
         cred = credentials.Certificate(ruta_json)
         firebase_admin.initialize_app(cred, {
             'databaseURL': 'https://ras-udca-default-rtdb.firebaseio.com/'
         })
     
-    # 2. Cargar y Validar el Modelo .pkl
+    # 3. Carga segura del modelo
     try:
+        # Cargamos el archivo completo
         data_pkl = joblib.load(ruta_pkl)
         
-        # DEBUG: Esto nos dirá en la consola de Streamlit qué llaves existen
-        # st.write(f"Llaves encontradas en el PKL: {list(data_pkl.keys())}") 
-
-        # Extraer con seguridad usando .get() para evitar que la app se caiga
-        m_temp = data_pkl.get('modelo_temp')
-        m_ph = data_pkl.get('modelo_ph')
-        columnas = data_pkl.get('columnas')
-
-        if m_temp is None or m_ph is None:
-            st.error("❌ El archivo .pkl no contiene 'modelo_temp' o 'modelo_ph'. Revisa cómo lo guardaste.")
-            st.stop()
+        # Verificamos si es un diccionario y qué contiene
+        if isinstance(data_pkl, dict):
+            m_temp = data_pkl.get('modelo_temp')
+            m_ph = data_pkl.get('modelo_ph')
+            columnas = data_pkl.get('columnas')
             
-        return m_temp, m_ph, columnas
+            # Si alguna llave falta, lanzamos error descriptivo
+            if m_temp is None or m_ph is None or columnas is None:
+                st.error(f"❌ El archivo .pkl tiene llaves incorrectas. Encontradas: {list(data_pkl.keys())}")
+                st.stop()
+                
+            return m_temp, m_ph, columnas
+        else:
+            st.error("❌ El archivo .pkl no es un diccionario. Revisa cómo lo guardaste en Python.")
+            st.stop()
 
     except Exception as e:
-        st.error(f"❌ Error crítico al cargar servicios: {e}")
+        st.error(f"❌ Error crítico al leer el modelo: {e}")
         st.stop()
-
 def graficar_proyeccion(df, real_col, pred_col, min_opt, max_opt, min_sub, max_sub, titulo, color_linea):
     """Genera gráficas dinámicas con zonas de seguridad y predicción IA."""
     fig = go.Figure()
