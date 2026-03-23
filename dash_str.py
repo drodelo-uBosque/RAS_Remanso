@@ -44,20 +44,29 @@ def iniciar_servicios():
         })
     
     # 3. Carga segura del modelo
+@st.cache_resource
+def iniciar_servicios():
+    # --- CONEXIÓN SEGURA A FIREBASE USANDO SECRETS ---
+    if not firebase_admin._apps:
+        try:
+            # Convertimos los secretos de Streamlit en un diccionario de Python
+            firebase_creds = dict(st.secrets["firebase_key"]) 
+            cred = credentials.Certificate(firebase_creds)
+            firebase_admin.initialize_app(cred, {
+                'databaseURL': 'https://ras-udca-default-rtdb.firebaseio.com/'
+            })
+        except Exception as e:
+            st.error(f"❌ Error al leer Secrets de Firebase: {e}")
+            st.stop()
+    
+    # --- CARGA DEL MODELO IA ---
     try:
-        # Cargamos el archivo completo
-        data_pkl = joblib.load(ruta_pkl)
-        
-        # Verificamos si es un diccionario y qué contiene
-        if isinstance(data_pkl, dict):
-            m_temp = data_pkl.get('modelo_temp')
-            m_ph = data_pkl.get('modelo_ph')
-            columnas = data_pkl.get('columnas')
-            
-            # Si alguna llave falta, lanzamos error descriptivo
-            if m_temp is None or m_ph is None or columnas is None:
-                st.error(f"❌ El archivo .pkl tiene llaves incorrectas. Encontradas: {list(data_pkl.keys())}")
-                st.stop()
+        ruta_pkl = 'sistema_ras_completo.pkl'
+        p = joblib.load(ruta_pkl)
+        return p['modelo_temp'], p['modelo_ph'], p['columnas']
+    except Exception as e:
+        st.error(f"❌ Error al cargar el modelo .pkl: {e}")
+        st.stop()
                 
             return m_temp, m_ph, columnas
         else:
