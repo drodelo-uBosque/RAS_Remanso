@@ -101,6 +101,15 @@ if 'hist' not in st.session_state:
 ahora = datetime.now()
 try:
     data_firebase = rtdb.reference('/sensor_data').get()
+
+    # =========================================================
+    # 🔍 PEGA EL BLOQUE DE DIAGNÓSTICO AQUÍ:
+    # =========================================================
+    st.sidebar.write("---")
+    st.sidebar.subheader("DEBUG de Datos")
+    st.sidebar.json(data_firebase) 
+    # =========================================================
+    
     if data_firebase:
         t_now = float(data_firebase.get('temp', VALOR_DEFECTO_T))
         p_now = float(data_firebase.get('ph', 7.0))
