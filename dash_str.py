@@ -26,15 +26,38 @@ VALOR_DEFECTO_T = 18.0
 # 2. FUNCIONES DE APOYO (DEFINICIONES)
 # =========================================================
 @st.cache_resource
-def conectar_firebase():
+def iniciar_servicios():
+    ruta_json = "llave_firebase.json"
+    ruta_pkl = "sistema_ras_completo.pkl"
+    
+    # 1. Verificar Firebase
     if not firebase_admin._apps:
-        cred = credentials.Certificate("llave_firebase.json")
+        cred = credentials.Certificate(ruta_json)
         firebase_admin.initialize_app(cred, {
             'databaseURL': 'https://ras-udca-default-rtdb.firebaseio.com/'
         })
+    
+    # 2. Cargar y Validar el Modelo .pkl
+    try:
+        data_pkl = joblib.load(ruta_pkl)
         
-    p = joblib.load('sistema_ras_completo.pkl')
-    return p['modelo_temp'], p['modelo_ph'], p['columnas']
+        # DEBUG: Esto nos dirá en la consola de Streamlit qué llaves existen
+        # st.write(f"Llaves encontradas en el PKL: {list(data_pkl.keys())}") 
+
+        # Extraer con seguridad usando .get() para evitar que la app se caiga
+        m_temp = data_pkl.get('modelo_temp')
+        m_ph = data_pkl.get('modelo_ph')
+        columnas = data_pkl.get('columnas')
+
+        if m_temp is None or m_ph is None:
+            st.error("❌ El archivo .pkl no contiene 'modelo_temp' o 'modelo_ph'. Revisa cómo lo guardaste.")
+            st.stop()
+            
+        return m_temp, m_ph, columnas
+
+    except Exception as e:
+        st.error(f"❌ Error crítico al cargar servicios: {e}")
+        st.stop()
 
 def graficar_proyeccion(df, real_col, pred_col, min_opt, max_opt, min_sub, max_sub, titulo, color_linea):
     """Genera gráficas dinámicas con zonas de seguridad y predicción IA."""
