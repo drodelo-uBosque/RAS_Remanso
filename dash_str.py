@@ -87,68 +87,72 @@ if not st.session_state.auth:
     st.stop()
 
 # =========================================================
-# 4. MOTOR DE DATOS EN TIEMPO REAL (VERSIÓN DE DIAGNÓSTICO)
+# 4. MOTOR DE DATOS (VERSIÓN CORREGIDA SIN NAMEERROR)
 # =========================================================
 mod_t, mod_p, cols_modelo = iniciar_servicios()
 
-# Refresco cada 5 segundos
+# Inicializamos variables para evitar NameError
+t_now, p_now, tds_now = VALOR_DEFECTO_T, 7.0, 0.0
+tf, pf = VALOR_DEFECTO_T, 7.0  # Predicciones por defecto
+
 st_autorefresh(interval=5000, key="global_refresh")
 
 if 'hist' not in st.session_state:
     st.session_state.hist = pd.DataFrame(columns=["Hora", "T_R", "T_P", "P_R", "P_P", "TDS_R"])
 
-# --- LECTURA DE FIREBASE ---
 ahora = datetime.now()
-st.sidebar.warning(f"Intentando leer Firebase... {ahora.strftime('%H:%M:%S')}")
 
+# --- LECTURA DE FIREBASE ---
 try:
-    # Cambiamos la referencia a la raíz '/' para ver TODO lo que hay en tu base de datos
-    ref_raiz = rtdb.reference('/')
-    data_total = ref_raiz.get()
+    data_total = rtdb.reference('/').get()
     
-    # ESTO DEBE APARECER SÍ O SÍ EN EL SIDEBAR
-    st.sidebar.write("### 🔍 CONTENIDO REAL EN FIREBASE:")
+    # Diagnóstico en el Sidebar (Para ver qué llega de la UDCA)
+    st.sidebar.write("### 🔍 DEBUG: Datos Reales")
     st.sidebar.json(data_total) 
 
-    # Intentamos extraer de la carpeta específica
+    # Intentamos buscar en 'sensor_data' o directamente en la raíz
     data_firebase = data_total.get('sensor_data') if data_total else None
 
     if data_firebase:
-        # Verifica que estos nombres coincidan con lo que ves en el JSON de arriba
         t_now = float(data_firebase.get('temp', VALOR_DEFECTO_T))
         p_now = float(data_firebase.get('ph', 7.0))
         tds_now = float(data_firebase.get('tds', 0.0))
-        st.sidebar.success("✅ Datos extraídos correctamente")
+        
+        # --- CÁLCULO IA (Solo si hay datos nuevos) ---
+        df_in = pd.DataFrame([[t_now, p_now, 1.0]], columns=['temperatura', 'ph', 'horas_transcurridas'])
+        for c in cols_modelo:
+            if c not in df_in.columns: df_in[c] = 0
+        df_in = df_in[cols_modelo]
+
+        tf = t_now + float(mod_t.predict(df_in)[0])
+        pf = p_now + float(mod_p.predict(df_in)[0])
+        st.sidebar.success("✅ Conectado a Firebase")
     else:
-        st.sidebar.error("❌ La carpeta '/sensor_data' no existe o está vacía")
-        t_now, p_now, tds_now = VALOR_DEFECTO_T, 7.0, 0.0
+        st.sidebar.warning("⚠️ Esperando datos de Firebase...")
+
 except Exception as e:
-    st.sidebar.error(f"❌ Error crítico de lectura: {e}")
-    t_now, p_now, tds_now = VALOR_DEFECTO_T, 7.0, 0.0
+    st.sidebar.error(f"❌ Error de conexión: {e}")
+
+# --- ACTUALIZAR HISTORIAL ---
+nuevo = pd.DataFrame({
+    "Hora": [ahora.strftime("%H:%M:%S")], 
+    "T_R": [t_now], "T_P": [tf], 
+    "P_R": [p_now], "P_P": [pf], 
+    "TDS_R": [tds_now]
+})
+st.session_state.hist = pd.concat([st.session_state.hist, nuevo], ignore_index=True).tail(30)
 
 # =========================================================
 # 5. RENDERIZADO VISUAL
 # =========================================================
-st.sidebar.image("https://www.udca.edu.co/wp-content/uploads/2021/05/logo-udca.png", use_container_width=True)
-
-# Semáforo Sidebar
-color_semaforo = "#28a745" if T_OPT_MIN <= t_now <= T_OPT_MAX else "#ffc107" if T_SUB_MIN <= t_now <= T_SUB_MAX else "#dc3545"
-st.sidebar.markdown(f"""
-    <div style="text-align: center; background: #1a1a1a; padding: 20px; border-radius: 15px; border: 2px solid {color_semaforo};">
-        <p style="color: white; font-size: 14px;">ESTADO DEL AGUA</p>
-        <div style="width: 60px; height: 60px; background: {color_semaforo}; border-radius: 50%; margin: 0 auto; box-shadow: 0 0 20px {color_semaforo};"></div>
-    </div>
-""", unsafe_allow_html=True)
-
 st.title("🌊 Dashboard Inteligente RAS - UDCA")
-st.write(f"Sincronizado con Firebase: **{ahora.strftime('%H:%M:%S')}**")
+st.write(f"Último intento: **{ahora.strftime('%H:%M:%S')}**")
 
-# Métricas
+# Métricas (Ahora tf y t_now siempre existen)
 m1, m2, m3 = st.columns(3)
 m1.metric("🌡️ TEMP", f"{t_now:.1f} °C", delta=f"{tf-t_now:.2f} (IA)")
 m2.metric("🧪 pH", f"{p_now:.2f}", delta=f"{pf-p_now:.2f} (IA)")
 m3.metric("💧 TDS", f"{tds_now:.0f} ppm")
-
 # Gráficas Principales
 col_a, col_b = st.columns(2)
 with col_a:
