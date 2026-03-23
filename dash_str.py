@@ -25,18 +25,24 @@ VALOR_DEFECTO_T = 18.0
 # 2. FUNCIONES DE APOYO (DEFINICIONES)
 # =========================================================
 @st.cache_resource
+@st.cache_resource
 def iniciar_servicios():
-    # --- CONEXIÓN A FIREBASE VÍA SECRETS ---
     if not firebase_admin._apps:
         try:
-            # Extrae la configuración desde Streamlit Secrets
-            firebase_creds = dict(st.secrets["firebase_key"]) 
-            cred = credentials.Certificate(firebase_creds)
+            # 1. Cargar el diccionario de secretos
+            info = dict(st.secrets["firebase_key"])
+            
+            # 2. LIMPIEZA CRÍTICA: Reemplazar los saltos de línea mal formateados
+            if "private_key" in info:
+                info["private_key"] = info["private_key"].replace("\\n", "\n")
+            
+            # 3. Inicializar con la info limpia
+            cred = credentials.Certificate(info)
             firebase_admin.initialize_app(cred, {
-                'databaseURL': 'https://ras-udca-default-rtdb.firebaseio.com/' 
+                'databaseURL': 'https://ras-udca-default-rtdb.firebaseio.com/'
             })
         except Exception as e:
-            st.error(f"❌ Error en Secrets de Firebase: {e}")
+            st.error(f"❌ Error en Secrets: {e}")
             st.stop()
     
     # --- CARGA DEL MODELO IA (.PKL) ---
