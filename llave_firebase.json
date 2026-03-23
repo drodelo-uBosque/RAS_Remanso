@@ -1,5 +1,4 @@
-{
-  "type": "service_account",
+{"type": "service_account",
   "project_id": "ras-udca",
   "private_key_id": "2816a51cc599ed3de88feab88035023d2e3fc016",
   "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC6kB65PYFyH5Hb\nChB2AALfqBF2wAKgw7M6bRXi+sezuvaxSNMVpiD/TKB+Otv+Wo0Dp1UBuEtbf93s\nU9yZyaD5eXO1pBASs6z9GnE4Rw27sK6dQsXsqnpmNoPlnL6ejqiivPcuox1fpFmP\nSEeV/kFgvnZT3pgIfbg4QztDdM2cbqGeKSaDwrNFSsmHZT+xye6TIfaHM8NSacCK\nFqttJPHKY0aS4QCtsobja2Y67bGlNIicHe8EVDUbiFSpgYLjo7+cM/o7j0imj9ju\nNPoYvFAHDycVQBCdipU1BSKkBZmJ9eSiMD+2eZdTEOPQmY7GwIheprkq9QIv7I0E\nBmcTb4lPAgMBAAECggEAEDleGqDhKkIMxp4sJH7hJ38WFoKH/mAWeYz1m5m246GH\nBSk+n7U+gF7MqqP58FECm2AInsL4Q4EUSEWNiFtslTvWvRcDHzhvexe643iDMFPW\nOft0R+qv0ay8l3hXav8f/8sFufem1pbt0CD3UySoN3GvMgfIQLcu92GaL6yvZs+U\nyWizUCVgX0Z4FoGEO/D13b/9u2UZlaSU9/rEyl9Ms5cSx4QhzSoWmAD3hJfFSxum\n6s17inCmMcmZP2KKeojutIFJ6lhvvQYEZbILmkogdoLdfN8rsKMLY+mkmXFR1lQ+\nUvnCYDKlGboD15ZG3OZVudhR9M65zpTdkix5MyrMHQKBgQDv3C+ikwC8H6hRsDV7\nEfLc64QK8eSLj2unjv5I2sm9qltN41j/1iavCjR54wvHNig8ti9DVWvqxQrMleJx\nZOztMMNIFPKmCgF85EsM4lCW2fRitJKnVEa9FUxKU2PIAE8Qwdlfbpu85bAk20Xc\nuYPUI8nzK251LVlM75TKfcRkfQKBgQDHHddT1Nd8Fn/+0K/RYy3KmnLqsKP3FADZ\nu9u5k1zkyYsFPZw4UfKd8NogZnxbc9D2oyKTYI/tMdVQFTZDZlUPoclajhrIdy+9\nP88IzvpwNJ0RtgFOU4E1r2Pfme2YggQ6MZeHSXptgeL9sL7fIwJGF6dckyhgIeJW\n1oN9eQZKuwKBgAl4zHjDDVhgd6kiKDp/7vNCaah0/O118G5hezEtUqImxAxDWhRg\nRI7M/F2D1cc8IEKlfyBNk0FmHpMNqC+KKMEFF/EUwrBD3OMtsLkFhuEuIjRzpQbu\nkQyOdsDIojwXpwemYAsgtw2ylE4gSpX4zXfnIeZ0ZJxD+i7LlziX1tWRAoGBAJ/J\nYrLzark5lR13eqAdZvHfX7jWZ74vXz9bcchKaZFv6xAZkPPhT0FPtrupgsIg/t/t\nqiF6rAU8qGHLo/ASftA8lMkGoJeejcDhI9N9xZulnSZJWGLywA3E4fDeJbztGVdZ\n1K/MV2LpiK7s1z9ZaMm20aeIsC31Ax2Mp5hZNqNhAoGBAJkCItgafnH8/33Pq/LU\njDehrPudRJYLXM5wPs8IQRWKMmmXJHg9CB9Ct68OkvuAtGYIcuM9pktUhZyxIvBH\nxjlhGSoRBhya1ltDqdGGXUwT48BFNtPxrE0zCF3MIilFG8dtDX3YJO6UHw2YLGjv\nqh7B6EOeuNYfZL+W/LpK4Ymh\n-----END PRIVATE KEY-----\n",
@@ -9,5 +8,4 @@
   "token_uri": "https://oauth2.googleapis.com/token",
   "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
   "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-fbsvc%40ras-udca.iam.gserviceaccount.com",
-  "universe_domain": "googleapis.com"
-}
+  "universe_domain": "googleapis.com"}
