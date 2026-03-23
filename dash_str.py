@@ -68,7 +68,7 @@ def iniciar_servicios():
         st.error(f"❌ Error al cargar el modelo .pkl: {e}")
         st.stop()
                 
-            return m_temp, m_ph, columnas
+        return m_temp, m_ph, columnas
         else:
             st.error("❌ El archivo .pkl no es un diccionario. Revisa cómo lo guardaste en Python.")
             st.stop()
