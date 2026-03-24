@@ -43,7 +43,6 @@ mod_t, mod_p, cols_modelo = iniciar_servicios()
 # =========================================================
 st.sidebar.image("logo_1.png", width=300)
 st.sidebar.title("⚙️ Panel de Control")
-st.sidebar.title("⚙️ Panel de Control")
 
 # Slider de Ajuste de Línea (Sensibilidad)
 ajuste_sensibilidad = st.sidebar.slider("Ajuste de Línea IA (Offset)", -5.0, 5.0, 0.0, 0.1)
