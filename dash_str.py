@@ -6,10 +6,9 @@ from firebase_admin import credentials, db as rtdb
 from datetime import datetime
 import plotly.graph_objects as go
 from streamlit_autorefresh import st_autorefresh
-import os
 
 # =========================================================
-# 1. CONFIGURACIÓN Y SERVICIOS
+# 1. SERVICIOS E INICIALIZACIÓN
 # =========================================================
 @st.cache_resource
 def iniciar_servicios():
@@ -19,47 +18,36 @@ def iniciar_servicios():
             if "private_key" in info:
                 info["private_key"] = info["private_key"].replace("\\n", "\n").strip()
             cred = credentials.Certificate(info)
-            firebase_admin.initialize_app(cred, {
-                'databaseURL': 'https://ras-udca-default-rtdb.firebaseio.com/' 
-            })
+            firebase_admin.initialize_app(cred, {'databaseURL': 'https://ras-udca-default-rtdb.firebaseio.com/'})
         except Exception as e:
-            st.error(f"Error Firebase: {e}")
-            st.stop()
-    
+            st.error(f"Error Firebase: {e}"); st.stop()
     try:
         p = joblib.load('sistema_ras_completo.pkl')
         return p['modelo_temp'], p['modelo_ph'], p['columnas']
     except:
-        st.error("Error al cargar modelos IA (.pkl)")
-        st.stop()
+        st.error("Error al cargar modelos IA"); st.stop()
 
-st.set_page_config(page_title="RAS UDCA - Monitor IA", layout="wide", page_icon="🐟")
+st.set_page_config(page_title="RAS UDCA - Monitor IA", layout="wide")
 mod_t, mod_p, cols_modelo = iniciar_servicios()
+st_autorefresh(interval=5000, key="global_refresh")
 
 # =========================================================
-# 2. SIDEBAR: CONTROLES TÉCNICOS
+# 2. SIDEBAR: AJUSTE DE LA LÍNEA DE PREDICCIÓN
 # =========================================================
 st.sidebar.image("https://www.udca.edu.co/wp-content/uploads/2021/05/logo-udca.png", use_container_width=True)
-st.sidebar.title("⚙️ Panel de Control")
+st.sidebar.title("⚙️ Ajuste de Predicción")
 
-# Control de muestras (Historial)
-n_muestras = st.sidebar.slider("Puntos en pantalla", 10, 200, 50)
-
-# Sensibilidad Numérica (Para ajuste de algoritmos de detección)
-sensibilidad = st.sidebar.number_input("Umbral de Sensibilidad (0.0 - 1.0)", min_value=0.0, max_value=1.0, value=0.5, step=0.05)
-
-st.sidebar.markdown("---")
-
-# =========================================================
-# 3. MOTOR DE DATOS (FIREBASE + HISTORIAL)
-# =========================================================
-st_autorefresh(interval=5000, key="global_refresh")
+# Sensibilidad como factor de corrección de la línea
+factor_ia = st.sidebar.slider("Ajuste de Sensibilidad (Factor IA)", 0.0, 5.0, 1.0, 0.1)
+n_muestras = st.sidebar.slider("Puntos en pantalla", 10, 100, 50)
 
 if 'historial' not in st.session_state:
     st.session_state.historial = pd.DataFrame(columns=["Hora", "T_R", "T_P", "P_R", "P_P", "TDS"])
 
+# =========================================================
+# 3. PROCESAMIENTO Y CÁLCULO
+# =========================================================
 ahora = datetime.now()
-
 try:
     ref = rtdb.reference('/sensor_data').get()
     if ref:
@@ -67,16 +55,20 @@ try:
         p_now = float(ref.get('ph', 7.0))
         tds_now = float(ref.get('tds', 0.0))
         
-        # Predicción IA (XGBoost)
+        # Entrada IA
         entrada = pd.DataFrame([[t_now, p_now, 1.0]], columns=['temperatura', 'ph', 'horas_transcurridas'])
         for c in cols_modelo:
             if c not in entrada.columns: entrada[c] = 0
         entrada = entrada[cols_modelo]
 
-        tf = t_now + float(mod_t.predict(entrada)[0])
-        pf = p_now + float(mod_p.predict(entrada)[0])
+        # APLICACIÓN DE LA SENSIBILIDAD A LA LÍNEA
+        # El factor_ia multiplica el "cambio" (delta) predicho por el XGBoost
+        delta_t = float(mod_t.predict(entrada)[0]) * factor_ia
+        delta_p = float(mod_p.predict(entrada)[0]) * factor_ia
         
-        # Guardar en historial dinámico
+        tf = t_now + delta_t
+        pf = p_now + delta_p
+        
         nuevo = {"Hora": ahora.strftime("%H:%M:%S"), "T_R": t_now, "T_P": tf, "P_R": p_now, "P_P": pf, "TDS": tds_now}
         st.session_state.historial = pd.concat([st.session_state.historial, pd.DataFrame([nuevo])], ignore_index=True).tail(n_muestras)
     else:
@@ -85,42 +77,37 @@ except:
     t_now, p_now, tds_now, tf, pf = 18.0, 7.0, 0.0, 18.0, 7.0
 
 # =========================================================
-# 4. INTERFAZ PRINCIPAL (DASHBOARD)
+# 4. DASHBOARD VISUAL
 # =========================================================
-st.title("🌊 Dashboard Inteligente RAS - UDCA")
-st.caption(f"Sincronizado con Bogotá | Hora: {ahora.strftime('%H:%M:%S')}")
+st.title("🌊 Monitor Inteligente RAS - UDCA")
 
-# Métricas en tiempo real
-m1, m2, m3 = st.columns(3)
-m1.metric("🌡️ Temperatura", f"{t_now:.1f} °C", f"{tf-t_now:.2f} (IA)")
-m2.metric("🧪 pH del Agua", f"{p_now:.2f}", f"{pf-p_now:.2f} (IA)")
-m3.metric("💧 TDS (Sólidos)", f"{tds_now:.0f} ppm")
+col1, col2, col3 = st.columns(3)
+col1.metric("🌡️ Temperatura", f"{t_now:.1f} °C", f"{tf-t_now:.2f} (IA)")
+col2.metric("🧪 pH", f"{p_now:.2f}", f"{pf-p_now:.2f} (IA)")
+col3.metric("💧 TDS", f"{tds_now:.0f} ppm")
 
-# Gráficas de Tendencia
-col_a, col_b = st.columns(2)
+c_a, c_b = st.columns(2)
 
-with col_a:
+with c_a:
     fig_t = go.Figure()
     fig_t.add_trace(go.Scatter(x=st.session_state.historial["Hora"], y=st.session_state.historial["T_R"], name="Real", line=dict(color="#00d4ff", width=3)))
-    fig_t.add_trace(go.Scatter(x=st.session_state.historial["Hora"], y=st.session_state.historial["T_P"], name="Predicción", line=dict(dash='dot', color="white", width=2)))
-    fig_t.update_layout(template="plotly_dark", title="Dinámica Térmica (°C)", height=350, margin=dict(l=10, r=10, t=40, b=10))
+    fig_t.add_trace(go.Scatter(x=st.session_state.historial["Hora"], y=st.session_state.historial["T_P"], name="Predicción IA", line=dict(dash='dot', color="yellow", width=2)))
+    fig_t.update_layout(template="plotly_dark", title="Tendencia Térmica", height=350, yaxis=dict(autorange=True))
     st.plotly_chart(fig_t, use_container_width=True)
 
-with col_b:
+with c_b:
     fig_p = go.Figure()
     fig_p.add_trace(go.Scatter(x=st.session_state.historial["Hora"], y=st.session_state.historial["P_R"], name="Real", line=dict(color="#ff00ff", width=3)))
-    fig_p.add_trace(go.Scatter(x=st.session_state.historial["Hora"], y=st.session_state.historial["P_P"], name="Predicción", line=dict(dash='dot', color="white", width=2)))
-    fig_p.update_layout(template="plotly_dark", title="Evolución de pH", height=350, margin=dict(l=10, r=10, t=40, b=10))
+    fig_p.add_trace(go.Scatter(x=st.session_state.historial["Hora"], y=st.session_state.historial["P_P"], name="Predicción IA", line=dict(dash='dot', color="yellow", width=2)))
+    fig_p.update_layout(template="plotly_dark", title="Tendencia de pH", height=350, yaxis=dict(autorange=True))
     st.plotly_chart(fig_p, use_container_width=True)
 
-# 📊 GRÁFICA DE TDS (Sólidos Totales Disueltos)
+# Gráfica TDS
 st.markdown("---")
-fig_tds = go.Figure(go.Scatter(x=st.session_state.historial["Hora"], y=st.session_state.historial["TDS"], fill='tozeroy', line=dict(color='#00ff88'), name="TDS"))
-fig_tds.add_hline(y=900, line_dash="dot", line_color="red", annotation_text="Límite Salinidad")
-fig_tds.update_layout(template="plotly_dark", title="Análisis de Sólidos Totales Disueltos (ppm)", height=300, margin=dict(l=10, r=10, t=40, b=10))
+fig_tds = go.Figure(go.Scatter(x=st.session_state.historial["Hora"], y=st.session_state.historial["TDS"], fill='tozeroy', line=dict(color='#00ff88')))
+fig_tds.update_layout(template="plotly_dark", title="Sólidos Totales Disueltos (TDS)", height=250)
 st.plotly_chart(fig_tds, use_container_width=True)
 
-# Descarga de datos
-st.sidebar.subheader("📥 Exportación")
+# Descarga
 csv = st.session_state.historial.to_csv(index=False).encode('utf-8')
-st.sidebar.download_button("Descargar Reporte CSV", csv, f"ensayo_ras_{ahora.strftime('%H%M')}.csv", "text/csv")
+st.sidebar.download_button("📥 Descargar Reporte CSV", csv, "datos_ras.csv", "text/csv")
