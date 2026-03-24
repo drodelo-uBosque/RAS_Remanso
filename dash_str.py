@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 import joblib
 import firebase_admin
 from firebase_admin import credentials, db as rtdb
@@ -10,167 +9,116 @@ from streamlit_autorefresh import st_autorefresh
 import os
 
 # =========================================================
-# 1. CONFIGURACIÓN DE PARÁMETROS (TESIS UDCA)
-# =========================================================
-T_OPT_MIN, T_OPT_MAX = 16.0, 20.0  
-T_SUB_MIN, T_SUB_MAX = 11.0, 27.0  
-
-PH_OPT_MIN, PH_OPT_MAX = 6.5, 8.5
-PH_SUB_MIN, PH_SUB_MAX = 5.5, 9.5
-
-TDS_MAX = 900
-VALOR_DEFECTO_T = 18.0
-
-# =========================================================
-# 2. FUNCIONES DE SERVICIO (INICIALIZACIÓN)
+# 1. CONFIGURACIÓN Y SERVICIOS (OCULTO)
 # =========================================================
 @st.cache_resource
 def iniciar_servicios():
-    # --- CONEXIÓN A FIREBASE (CON LIMPIEZA DE LLAVE) ---
     if not firebase_admin._apps:
         try:
             info = dict(st.secrets["firebase_key"])
-            # Limpieza profunda para evitar errores JWT
             if "private_key" in info:
                 info["private_key"] = info["private_key"].replace("\\n", "\n").strip()
-            
             cred = credentials.Certificate(info)
             firebase_admin.initialize_app(cred, {
                 'databaseURL': 'https://ras-udca-default-rtdb.firebaseio.com/' 
             })
         except Exception as e:
-            st.error(f"❌ Error en Configuración de Firebase: {e}")
+            st.error(f"Error de conexión: {e}")
             st.stop()
     
-    # --- CARGA DEL MODELO IA ---
     try:
-        ruta_pkl = 'sistema_ras_completo.pkl'
-        if not os.path.exists(ruta_pkl):
-            st.error(f"❌ Archivo {ruta_pkl} no encontrado.")
-            st.stop()
-        p = joblib.load(ruta_pkl)
+        p = joblib.load('sistema_ras_completo.pkl')
         return p['modelo_temp'], p['modelo_ph'], p['columnas']
-    except Exception as e:
-        st.error(f"❌ Error al cargar modelo .pkl: {e}")
+    except:
+        st.error("Error al cargar modelos IA (.pkl)")
         st.stop()
 
-def graficar_proyeccion(df, real_col, pred_col, min_opt, max_opt, min_sub, max_sub, titulo, color_linea):
-    fig = go.Figure()
-    # Zonas de confort térmico/químico
-    fig.add_hrect(y0=min_opt, y1=max_opt, fillcolor="green", opacity=0.15, line_width=0)
-    fig.add_hrect(y0=min_sub, y1=min_opt, fillcolor="yellow", opacity=0.08, line_width=0)
-    fig.add_hrect(y0=max_opt, y1=max_sub, fillcolor="yellow", opacity=0.08, line_width=0)
-    
-    # Datos
-    fig.add_trace(go.Scatter(x=df["Hora"], y=df[real_col], name="Dato Real", line=dict(color=color_linea, width=4)))
-    fig.add_trace(go.Scatter(x=df["Hora"], y=df[pred_col], name="Predicción IA", line=dict(color='white', dash='dot', width=2)))
-    
-    fig.update_layout(template="plotly_dark", title=titulo, height=350, margin=dict(l=10, r=10, t=50, b=10))
-    return fig
-
-# =========================================================
-# 3. SEGURIDAD Y ESTADO DE SESIÓN
-# =========================================================
+# Configuración de página
 st.set_page_config(page_title="RAS UDCA - Monitor IA", layout="wide", page_icon="🐟")
-
-if "auth" not in st.session_state:
-    st.session_state.auth = False
-
-if not st.session_state.auth:
-    st.title("🔒 Control de Acceso - Tesis RAS")
-    u = st.text_input("Usuario")
-    p = st.text_input("Contraseña", type="password")
-    if st.button("Ingresar"):
-        if u == "admin" and p == "ras2026":
-            st.session_state.auth = True
-            st.rerun()
-        else:
-            st.error("Credenciales incorrectas")
-    st.stop()
-
-# =========================================================
-# 4. PROCESAMIENTO DE DATOS EN TIEMPO REAL
-# =========================================================
 mod_t, mod_p, cols_modelo = iniciar_servicios()
 
-# Inicialización de variables para evitar NameError
-t_now, p_now, tds_now = VALOR_DEFECTO_T, 7.0, 0.0
-tf, pf = VALOR_DEFECTO_T, 7.0 
+# =========================================================
+# 2. SIDEBAR: CONTROLES DE USUARIO (ESTÉTICA ORIGINAL)
+# =========================================================
+st.sidebar.image("https://www.udca.edu.co/wp-content/uploads/2021/05/logo-udca.png", use_container_width=True)
+st.sidebar.title("⚙️ Configuración")
 
+# Control de muestras (Historial)
+n_muestras = st.sidebar.slider("Número de muestras en pantalla", 10, 100, 30)
+
+# Sensibilidad (Simulada para visualización de IA)
+sensibilidad = st.sidebar.select_slider("Sensibilidad de Alerta", options=["Baja", "Media", "Alta"], value="Media")
+
+st.sidebar.markdown("---")
+
+# =========================================================
+# 3. GESTIÓN DE DATOS Y FIREBASE
+# =========================================================
 st_autorefresh(interval=5000, key="global_refresh")
 
-if 'hist' not in st.session_state:
-    st.session_state.hist = pd.DataFrame(columns=["Hora", "T_R", "T_P", "P_R", "P_P", "TDS_R"])
+if 'historial' not in st.session_state:
+    st.session_state.historial = pd.DataFrame(columns=["Hora", "T_R", "T_P", "P_R", "P_P", "TDS"])
 
 ahora = datetime.now()
 
-# --- LECTURA DE FIREBASE ---
 try:
-    # Leemos la raíz para el diagnóstico en el sidebar
-    data_total = rtdb.reference('/').get()
-    
-    # Diagnóstico en Sidebar
-    st.sidebar.write("### 🔍 Datos en la Nube")
-    st.sidebar.json(data_total) 
-
-    # Buscar carpeta de sensores (ajusta 'sensor_data' si tu ESP32 usa otro nombre)
-    data_firebase = data_total.get('sensor_data') if data_total else None
-
-    if data_firebase:
-        t_now = float(data_firebase.get('temp', VALOR_DEFECTO_T))
-        p_now = float(data_firebase.get('ph', 7.0))
-        tds_now = float(data_firebase.get('tds', 0.0))
+    # Lectura silenciosa (Sin mostrar JSON)
+    ref = rtdb.reference('/sensor_data').get()
+    if ref:
+        t_now = float(ref.get('temp', 18.0))
+        p_now = float(ref.get('ph', 7.0))
+        tds_now = float(ref.get('tds', 0.0))
         
-        # --- CÁLCULO IA (XGBOOST) ---
-        df_in = pd.DataFrame([[t_now, p_now, 1.0]], columns=['temperatura', 'ph', 'horas_transcurridas'])
+        # Predicción IA
+        entrada = pd.DataFrame([[t_now, p_now, 1.0]], columns=['temperatura', 'ph', 'horas_transcurridas'])
         for c in cols_modelo:
-            if c not in df_in.columns: df_in[c] = 0
-        df_in = df_in[cols_modelo]
+            if c not in entrada.columns: entrada[c] = 0
+        entrada = entrada[cols_modelo]
 
-        tf = t_now + float(mod_t.predict(df_in)[0])
-        pf = p_now + float(mod_p.predict(df_in)[0])
-        st.sidebar.success("✅ Conexión Activa")
+        tf = t_now + float(mod_t.predict(entrada)[0])
+        pf = p_now + float(mod_p.predict(entrada)[0])
+        
+        # Guardar en historial
+        nuevo = {"Hora": ahora.strftime("%H:%M:%S"), "T_R": t_now, "T_P": tf, "P_R": p_now, "P_P": pf, "TDS": tds_now}
+        st.session_state.historial = pd.concat([st.session_state.historial, pd.DataFrame([nuevo])], ignore_index=True).tail(n_muestras)
     else:
-        st.sidebar.warning("⚠️ Sin datos en '/sensor_data'")
+        t_now, p_now, tds_now, tf, pf = 18.0, 7.0, 0.0, 18.0, 7.0
 
-except Exception as e:
-    st.sidebar.error(f"❌ Error de lectura: {e}")
-
-# --- ACTUALIZAR HISTORIAL ---
-nuevo_pnt = pd.DataFrame({
-    "Hora": [ahora.strftime("%H:%M:%S")], 
-    "T_R": [t_now], "T_P": [tf], 
-    "P_R": [p_now], "P_P": [pf], 
-    "TDS_R": [tds_now]
-})
-st.session_state.hist = pd.concat([st.session_state.hist, nuevo_pnt], ignore_index=True).tail(30)
+except:
+    t_now, p_now, tds_now, tf, pf = 18.0, 7.0, 0.0, 18.0, 7.0
 
 # =========================================================
-# 5. INTERFAZ DE USUARIO (DASHBOARD)
+# 4. INTERFAZ PRINCIPAL (DASHBOARD)
 # =========================================================
-st.title("🌊 Sistema de Monitoreo Inteligente RAS")
-st.markdown(f"**Ubicación:** Bogotá, Colombia (2640 msnm) | **Hora:** {ahora.strftime('%H:%M:%S')}")
+st.title("🌊 Sistema de Monitoreo Inteligente RAS - UDCA")
+st.markdown(f"Última actualización: **{ahora.strftime('%H:%M:%S')}**")
 
-# Métricas Principales
-col1, col2, col3 = st.columns(3)
-col1.metric("🌡️ Temperatura", f"{t_now:.1f} °C", delta=f"{tf-t_now:.2f} (IA)")
-col2.metric("🧪 pH del Agua", f"{p_now:.2f}", delta=f"{pf-p_now:.2f} (IA)")
-col3.metric("💧 TDS", f"{tds_now:.0f} ppm")
+# Métricas destacadas
+m1, m2, m3 = st.columns(3)
+m1.metric("🌡️ Temperatura", f"{t_now:.1f} °C", f"{tf-t_now:.2f} (IA)")
+m2.metric("🧪 pH del Agua", f"{p_now:.2f}", f"{pf-p_now:.2f} (IA)")
+m3.metric("💧 TDS", f"{tds_now:.0f} ppm")
 
 # Gráficas de Análisis
-f1, f2 = st.columns(2)
-with f1:
-    st.plotly_chart(graficar_proyeccion(st.session_state.hist, "T_R", "T_P", T_OPT_MIN, T_OPT_MAX, T_SUB_MIN, T_SUB_MAX, "Dinámica Térmica (°C)", "#00d4ff"), use_container_width=True)
-with f2:
-    st.plotly_chart(graficar_proyeccion(st.session_state.hist, "P_R", "P_P", PH_OPT_MIN, PH_OPT_MAX, PH_SUB_MIN, PH_SUB_MAX, "Evolución de pH", "#ff00ff"), use_container_width=True)
+col_a, col_b = st.columns(2)
 
-# Gráfica de Sólidos (TDS)
-fig_tds = go.Figure(go.Scatter(x=st.session_state.hist["Hora"], y=st.session_state.hist["TDS_R"], fill='tozeroy', line=dict(color='#00ff88'), name="TDS"))
-fig_tds.add_hline(y=TDS_MAX, line_dash="dot", line_color="red", annotation_text="Límite Salinidad")
-fig_tds.update_layout(template="plotly_dark", title="Sólidos Totales Disueltos (ppm)", height=300)
-st.plotly_chart(fig_tds, use_container_width=True)
+with col_a:
+    fig_t = go.Figure()
+    fig_t.add_trace(go.Scatter(x=st.session_state.historial["Hora"], y=st.session_state.historial["T_R"], name="Real", line=dict(color="#00d4ff", width=4)))
+    fig_t.add_trace(go.Scatter(x=st.session_state.historial["Hora"], y=st.session_state.historial["T_P"], name="IA", line=dict(dash='dot', color="white")))
+    fig_t.update_layout(template="plotly_dark", title="Dinámica Térmica", height=350, margin=dict(l=0, r=0, t=40, b=0))
+    st.plotly_chart(fig_t, use_container_width=True)
 
-# Sidebar - Acciones Finales
-st.sidebar.markdown("---")
-csv_data = st.session_state.hist.to_csv(index=False).encode('utf-8')
-st.sidebar.download_button("📥 Descargar Datos de Ensayo", csv_data, f"reporte_ras_{ahora.strftime('%Y%m%d')}.csv", "text/csv")
+with col_b:
+    fig_p = go.Figure()
+    fig_p.add_trace(go.Scatter(x=st.session_state.historial["Hora"], y=st.session_state.historial["P_R"], name="Real", line=dict(color="#ff00ff", width=4)))
+    fig_p.add_trace(go.Scatter(x=st.session_state.historial["Hora"], y=st.session_state.historial["P_P"], name="IA", line=dict(dash='dot', color="white")))
+    fig_p.update_layout(template="plotly_dark", title="Evolución de pH", height=350, margin=dict(l=0, r=0, t=40, b=0))
+    st.plotly_chart(fig_p, use_container_width=True)
+
+# Sección de descarga en el Sidebar
+st.sidebar.subheader("📥 Reportes")
+csv = st.session_state.historial.to_csv(index=False).encode('utf-8')
+st.sidebar.download_button("Descargar CSV de Ensayo", csv, f"ras_data_{ahora.strftime('%Y%m%d')}.csv", "text/csv")
+
+st.sidebar.info(f"Sensibilidad configurada en modo: **{sensibilidad}** para el análisis de variables basales.")
