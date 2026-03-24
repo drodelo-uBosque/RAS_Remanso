@@ -6,3 +6,4 @@ firebase-admin
 plotly
 streamlit-autorefresh
 xgboost
+scikit-learn
