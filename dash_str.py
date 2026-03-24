@@ -34,7 +34,8 @@ st_autorefresh(interval=5000, key="global_refresh")
 # =========================================================
 # 2. SIDEBAR: EL SLIDER DE SENSIBILIDAD / AJUSTE
 # =========================================================
-st.sidebar.image("https://www.udca.edu.co/wp-content/uploads/2021/05/logo-udca.png", use_container_width=True)
+st.sidebar.image("logo_1.png", width=300)
+st.sidebar.title("⚙️ Panel de Control")
 st.sidebar.title("⚙️ Ajuste de Predicción")
 
 # SLIDER DE SENSIBILIDAD (Ajuste aditivo para subir/bajar la línea)
