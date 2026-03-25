@@ -64,7 +64,7 @@ if not st.session_state.auth:
         # OPCIÓN A: Usar width para definir un tamaño fijo en píxeles (ej: 150)
         # OPCIÓN B: use_container_width=True se adaptará al ancho de esta columna pequeña
         try:
-            st.image("logo_1.png", width=250) # <--- Cambia 180 por el tamaño que prefieras
+            st.image("logo_1.png", width=300) # <--- Cambia 180 por el tamaño que prefieras
         except:
             st.warning("Logo no encontrado")
             
