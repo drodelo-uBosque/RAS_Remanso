@@ -1,17 +1,20 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 import joblib
 import firebase_admin
 from firebase_admin import credentials, db as rtdb
-from datetime import datetime, timedelta
+from datetime import datetime
 import plotly.graph_objects as go
-from sklearn.metrics import mean_absolute_error, mean_squared_error
 from streamlit_autorefresh import st_autorefresh
+import os
 
 # =========================================================
-# 1. SERVICIOS Y CONFIGURACIÓN
+# 1. PARÁMETROS TÉCNICOS Y CONFIGURACIÓN
 # =========================================================
+TEMP_MIN, TEMP_MAX = 14.0, 22.0
+PH_MIN, PH_MAX = 6.5, 8.5
+TDS_LIMITE = 800
+
 @st.cache_resource
 def iniciar_servicios():
     if not firebase_admin._apps:
@@ -21,99 +24,130 @@ def iniciar_servicios():
                 info["private_key"] = info["private_key"].replace("\\n", "\n").strip()
             cred = credentials.Certificate(info)
             firebase_admin.initialize_app(cred, {'databaseURL': 'https://ras-udca-default-rtdb.firebaseio.com/'})
-        except: st.error("Error Firebase"); st.stop()
+        except Exception as e:
+            st.error(f"Error Firebase: {e}"); st.stop()
     try:
         p = joblib.load('sistema_ras_completo.pkl')
-        return p['modelo_temp'], p['columnas']
-    except: return None, None
+        return p['modelo_temp'], p['modelo_ph'], p['columnas']
+    except:
+        st.error("Error al cargar modelos IA"); st.stop()
 
-st.set_page_config(page_title="Validación IA - UDCA", layout="wide")
-mod_t, cols_modelo = iniciar_servicios()
+st.set_page_config(page_title="RAS UDCA - Monitor IA", layout="wide", page_icon="🐟")
+
+# =========================================================
+# 2. SISTEMA DE LOGIN (RESTAURADO)
+# =========================================================
+if "auth" not in st.session_state:
+    st.session_state.auth = False
+
+if not st.session_state.auth:
+    st.title("🔒 Control de Acceso - Tesis RAS")
+    col_login, _ = st.columns([1, 2])
+    with col_login:
+        u = st.text_input("Usuario Administrador")
+        p = st.text_input("Contraseña de Acceso", type="password")
+        if st.button("Ingresar al Dashboard"):
+            if u == "admin" and p == "ras2026": # Puedes cambiar esta clave
+                st.session_state.auth = True
+                st.rerun()
+            else:
+                st.error("Credenciales incorrectas")
+    st.stop() # Bloquea el resto del código si no hay auth
+
+# =========================================================
+# 3. CARGA DE DATOS Y SIDEBAR
+# =========================================================
+mod_t, mod_p, cols_modelo = iniciar_servicios()
 st_autorefresh(interval=5000, key="global_refresh")
 
-# --- LOGIN ---
-if "auth" not in st.session_state: st.session_state.auth = False
-if not st.session_state.auth:
-    st.title("🔒 Validación Técnica RAS")
-    u, p = st.text_input("Usuario"), st.text_input("Clave", type="password")
-    if st.button("Entrar"):
-        if u == "admin" and p == "ras2026":
-            st.session_state.auth = True
-            st.rerun()
-    st.stop()
+st.sidebar.image("logo_1.png", width=300)
+st.sidebar.title("⚙️ Panel de Control")
+ajuste_sensibilidad = st.sidebar.slider("Ajuste de Línea IA (Offset)", -5.0, 5.0, 0.0, 0.1)
+n_muestras = st.sidebar.slider("Puntos en pantalla", 10, 100, 50)
 
-# =========================================================
-# 2. SIDEBAR: CONTROL Y MÉTRICAS EN VIVO
-# =========================================================
-st.sidebar.image("https://www.udca.edu.co/wp-content/uploads/2021/05/logo-udca.png", use_container_width=True)
-st.sidebar.header("📊 Validación de Rendimiento")
-
-jornada_hrs = st.sidebar.select_slider("Horizonte (Hrs):", options=[4, 8, 12, 24], value=12)
-
-# Historial de datos
 if 'historial' not in st.session_state:
-    st.session_state.historial = pd.DataFrame(columns=["Hora", "Real", "Pred"])
+    st.session_state.historial = pd.DataFrame(columns=["Hora", "T_R", "T_P", "P_R", "P_P", "TDS"])
 
-# --- CÁLCULO DE MÉTRICAS (Si hay datos suficientes) ---
-if len(st.session_state.historial) > 5:
-    y_true = st.session_state.historial["Real"].values
-    y_pred = st.session_state.historial["Pred"].values
-    
-    mae = mean_absolute_error(y_true, y_pred)
-    rmse = np.sqrt(mean_squared_error(y_true, y_pred))
-    
-    st.sidebar.metric("MAE (Error Medio)", f"{mae:.3f} °C")
-    st.sidebar.metric("RMSE (Estabilidad)", f"{rmse:.3f} °C")
-    
-    # Interpretación para la tesis
-    if mae < 0.5: st.sidebar.success("✅ Precisión Alta")
-    elif mae < 1.0: st.sidebar.warning("⚠️ Precisión Moderada")
-    else: st.sidebar.error("❌ Revisar Calibración")
+ahora = datetime.now()
 
-# =========================================================
-# 3. PROCESAMIENTO Y PREDICCIÓN
-# =========================================================
+# Lógica de obtención de datos (Firebase)
 try:
     ref = rtdb.reference('/sensor_data').get()
-    t_now = float(ref.get('temp', 18.0)) if ref else 18.0
-    p_now = float(ref.get('ph', 7.0)) if ref else 7.0
-    
-    # Predicción XGBoost
-    if mod_t:
-        entrada = pd.DataFrame([[t_now, p_now, float(jornada_hrs)]], columns=['temperatura', 'ph', 'horas_transcurridas'])
+    if ref:
+        t_now = float(ref.get('temp', 18.0))
+        p_now = float(ref.get('ph', 7.0))
+        tds_now = float(ref.get('tds', 0.0))
+        
+        entrada = pd.DataFrame([[t_now, p_now, 1.0]], columns=['temperatura', 'ph', 'horas_transcurridas'])
         for c in cols_modelo:
             if c not in entrada.columns: entrada[c] = 0
-        tf = t_now + float(mod_t.predict(entrada[cols_modelo])[0])
-    else: tf = t_now
+        entrada = entrada[cols_modelo]
 
-    # Guardar para métricas
-    nuevo = {"Hora": datetime.now().strftime("%H:%M:%S"), "Real": t_now, "Pred": tf}
-    st.session_state.historial = pd.concat([st.session_state.historial, pd.DataFrame([nuevo])], ignore_index=True).tail(50)
-except: pass
+        tf = t_now + float(mod_t.predict(entrada)[0]) + ajuste_sensibilidad
+        pf = p_now + float(mod_p.predict(entrada)[0]) + (ajuste_sensibilidad * 0.1)
+        
+        nuevo = {"Hora": ahora.strftime("%H:%M:%S"), "T_R": t_now, "T_P": tf, "P_R": p_now, "P_P": pf, "TDS": tds_now}
+        st.session_state.historial = pd.concat([st.session_state.historial, pd.DataFrame([nuevo])], ignore_index=True).tail(n_muestras)
+    else:
+        t_now, p_now, tds_now, tf, pf = 18.0, 7.0, 0.0, 18.0, 7.0
+except:
+    t_now, p_now, tds_now, tf, pf = 18.0, 7.0, 0.0, 18.0, 7.0
 
 # =========================================================
-# 4. VISUALIZACIÓN
+# 4. INTERFAZ: SEMÁFORO Y GRÁFICAS
 # =========================================================
-st.title("🔬 Laboratorio de Validación IA - RAS")
-st.markdown(f"Evaluando el comportamiento térmico en **Bogotá** con horizonte de **{jornada_hrs} horas**.")
+st.title("🌊 Dashboard Inteligente RAS - UDCA")
+st.markdown(f"Usuario: **{ahora.strftime('%H:%M:%S')}** | Estación: **Bogotá**")
 
-# Gráfica de Dispersión (Real vs Predicho) - CLAVE PARA TESIS
-fig_eval = go.Figure()
-fig_eval.add_trace(go.Scatter(x=st.session_state.historial["Real"], y=st.session_state.historial["Pred"],
-                             mode='markers', name="Puntos de Datos", marker=dict(color='yellow', size=10)))
-# Línea de 45 grados (Ideal)
-limit_min = min(st.session_state.historial["Real"].min(), st.session_state.historial["Pred"].min())
-limit_max = max(st.session_state.historial["Real"].max(), st.session_state.historial["Pred"].max())
-fig_eval.add_trace(go.Scatter(x=[limit_min, limit_max], y=[limit_min, limit_max], 
-                             mode='lines', name="Predicción Perfecta", line=dict(color='white', dash='dash')))
+# Semáforo
+def obtener_estado_valido(valor, min_v, max_v):
+    if min_v <= valor <= max_v: return "🟢 Óptimo", "complete"
+    elif (min_v - 2) <= valor <= (max_v + 2): return "🟡 Alerta", "running"
+    else: return "🔴 Crítico", "error"
 
-fig_eval.update_layout(template="plotly_dark", title="Gráfica de Ajuste (Real vs IA)",
-                       xaxis_title="Temperatura Real (°C)", yaxis_title="Temperatura Predicha (°C)", height=500)
-st.plotly_chart(fig_eval, use_container_width=True)
+st.markdown("### 🚦 Estado Actual")
+s1, s2, s3 = st.columns(3)
+txt_t, state_t = obtener_estado_valido(t_now, TEMP_MIN, TEMP_MAX)
+txt_p, state_p = obtener_estado_valido(p_now, PH_MIN, PH_MAX)
 
-with st.expander("📚 ¿Cómo leer estas métricas en mi sustentación?"):
-    st.write("""
-    - **MAE:** Es qué tan lejos está la IA del termómetro en promedio. Para peces, un MAE menor a 0.8°C es ideal.
-    - **RMSE:** Si este valor es mucho más alto que el MAE, significa que tu modelo tiene 'outliers' o errores grandes puntuales.
-    - **Gráfica de Ajuste:** Entre más cerca estén los puntos amarillos de la línea blanca diagonal, más 'perfecto' es tu modelo XGBoost.
-    """)
+with s1: st.status(f"Temp: {txt_t}", state=state_t)
+with s2: st.status(f"pH: {txt_p}", state=state_p)
+with s3: 
+    st_tds = "complete" if tds_now < TDS_LIMITE else "error"
+    st.status(f"TDS: {'🟢 Estable' if tds_now < TDS_LIMITE else '🔴 Alto'}", state=st_tds)
+
+st.markdown("---")
+
+# Métricas y Gráficas (Idéntico al anterior)
+m1, m2, m3 = st.columns(3)
+m1.metric("🌡️ Temperatura", f"{t_now:.1f} °C", f"{tf-t_now:.2f} (IA)")
+m2.metric("🧪 pH", f"{p_now:.2f}", f"{pf-p_now:.2f} (IA)")
+m3.metric("💧 TDS", f"{tds_now:.0f} ppm")
+
+c_a, c_b = st.columns(2)
+with c_a:
+    fig_t = go.Figure()
+    fig_t.add_trace(go.Scatter(x=st.session_state.historial["Hora"], y=st.session_state.historial["T_R"], name="Real", line=dict(color="#00d4ff", width=4)))
+    fig_t.add_trace(go.Scatter(x=st.session_state.historial["Hora"], y=st.session_state.historial["T_P"], name="IA", line=dict(dash='dot', color="yellow")))
+    fig_t.update_layout(template="plotly_dark", title="Tendencia Térmica", height=350, yaxis=dict(autorange=True))
+    st.plotly_chart(fig_t, use_container_width=True)
+
+with c_b:
+    fig_p = go.Figure()
+    fig_p.add_trace(go.Scatter(x=st.session_state.historial["Hora"], y=st.session_state.historial["P_R"], name="Real", line=dict(color="#ff00ff", width=4)))
+    fig_p.add_trace(go.Scatter(x=st.session_state.historial["Hora"], y=st.session_state.historial["P_P"], name="IA", line=dict(dash='dot', color="yellow")))
+    fig_p.update_layout(template="plotly_dark", title="Tendencia pH", height=350, yaxis=dict(autorange=True))
+    st.plotly_chart(fig_p, use_container_width=True)
+
+fig_tds = go.Figure(go.Scatter(x=st.session_state.historial["Hora"], y=st.session_state.historial["TDS"], fill='tozeroy', line=dict(color='#00ff88')))
+fig_tds.update_layout(template="plotly_dark", title="Sólidos Totales Disueltos (TDS)", height=250)
+st.plotly_chart(fig_tds, use_container_width=True)
+
+# Botón de cierre y descarga
+if st.sidebar.button("Cerrar Sesión"):
+    st.session_state.auth = False
+    st.rerun()
+
+st.sidebar.markdown("---")
+csv = st.session_state.historial.to_csv(index=False).encode('utf-8')
+st.sidebar.download_button("Descargar Datos", csv, f"ras_{ahora.strftime('%H%M')}.csv", "text/csv")
