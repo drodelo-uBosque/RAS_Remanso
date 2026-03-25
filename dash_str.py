@@ -149,14 +149,16 @@ except:
 # =========================================================
 # 5. INTERFAZ DE USUARIO
 # =========================================================
-col_esp1, col_logo_h, col_esp2 = st.columns([1.2, 1, 1.2])
-with col_logo_header:
+# Creamos las columnas justo antes de usarlas para evitar el error de NameError
+c1, c2, c3 = st.columns([1, 0.8, 1]) 
+
+with c2: # Usamos la columna central
     try:
-        # Cargamos el mismo archivo logo_1.png
-        # Ajusta el width (ancho en píxeles) para que no se vea muy grande (ej: 200 o 250)
-        st.image("logo_11.png", width=220) 
-    except:
-        st.warning("⚠️ No se pudo cargar el logo principal (logo_1.png).")
+        # Cargamos el logo con un tamaño fijo para que no sea gigante
+        st.image("logo_11.png", width=200) 
+    except Exception as e:
+        # Si el archivo no existe, mostramos un mensaje discreto para no romper la app
+        st.caption("Sistema RAS - UDCA")
         
 st.title("Sistema IoT RAS - Unidad Académica El Remanso UDCA")
 hora_proyectada = (ahora + timedelta(hours=jornada_hrs)).strftime("%H:%M")
