@@ -50,24 +50,38 @@ def iniciar_servicios():
         st.error("Error al cargar modelos IA (.pkl)"); st.stop()
 
 # =========================================================
-# 2. SISTEMA DE LOGIN
+# 2. SISTEMA DE LOGIN (CON LOGO INSTITUCIONAL)
 # =========================================================
 if "auth" not in st.session_state:
     st.session_state.auth = False
 
 if not st.session_state.auth:
-    st.title("🔒 Control de Acceso - Tesis RAS")
-    col_login, _ = st.columns([1, 2])
-    with col_login:
-        u = st.text_input("Usuario Administrador")
+    # Centramos el contenido del login
+    col_a, col_logo, col_b = st.columns([1, 2, 1])
+    
+    with col_logo:
+        # 1. Ponemos el logo centrado arriba del título
+        try:
+            st.image("logo_1.png", use_container_width=True)
+        except:
+            st.warning("⚠️ Archivo logo_1.png no encontrado en el repositorio.")
+            
+        st.title("🔒 Control de Acceso")
+        st.subheader("Proyecto de Grado - UDCA")
+        
+        # 2. Formulario de credenciales
+        u = st.text_input("Usuario Administrador", placeholder="Ej: admin")
         p = st.text_input("Contraseña de Acceso", type="password")
-        if st.button("Ingresar al Dashboard"):
+        
+        if st.button("🚀 Ingresar al Dashboard", use_container_width=True):
             if u == "admin" and p == "ras2026":
                 st.session_state.auth = True
+                st.success("Acceso concedido. Cargando sistema...")
                 st.rerun()
             else:
-                st.error("Credenciales incorrectas")
-    st.stop()
+                st.error("Credenciales incorrectas. Verifique e intente de nuevo.")
+                
+    st.stop() # Bloquea el resto del dashboard hasta que se autentique
 
 # =========================================================
 # 3. CARGA DE DATOS Y SIDEBAR TÉCNICO
