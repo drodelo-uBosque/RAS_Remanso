@@ -57,7 +57,8 @@ if "auth" not in st.session_state:
 
 if not st.session_state.auth:
     # Centramos el contenido del login
-    col_a, col_logo, col_b = st.columns([1, 2, 1])
+    #col_a, col_logo, col_b = st.columns([1, 2, 1])
+    col_izq, col_central, col_der = st.columns([1.5, 1, 1.5])
     
     with col_logo:
         # 1. Ponemos el logo centrado arriba del título
