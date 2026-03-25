@@ -58,7 +58,7 @@ if "auth" not in st.session_state:
 if not st.session_state.auth:
     # Aumentamos el tamaño de las columnas laterales [1.5, 1, 1.5] 
     # para que la columna central (el logo) sea más pequeña
-    col_izq, col_central, col_der = st.columns([1.5, 1, 1.5])
+    col_izq, col_central, col_der = st.columns([1, 2, 1])
     
     with col_central:
         # OPCIÓN A: Usar width para definir un tamaño fijo en píxeles (ej: 150)
