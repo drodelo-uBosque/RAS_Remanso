@@ -149,6 +149,7 @@ except:
 # =========================================================
 # 5. INTERFAZ DE USUARIO
 # =========================================================
+col_esp1, col_logo_h, col_esp2 = st.columns([1.2, 1, 1.2])
 with col_logo_header:
     try:
         # Cargamos el mismo archivo logo_1.png
