@@ -73,13 +73,13 @@ if not st.session_state.auth:
         u = st.text_input("Usuario Administrador", placeholder="Ej: admin")
         p = st.text_input("Contraseña de Acceso", type="password")
         
-        if st.button("Ingresar al Dashboard", use_container_width=True):
-            if u == "admin" and p == "ras2026":
+        if st.button("Ingresar a la plataforma", use_container_width=True):
+            if u == "admin" and p == "ras_2026":
                 st.session_state.auth = True
                 st.success("Acceso concedido. Cargando sistema...")
                 st.rerun()
             else:
-                st.error("Credenciales incorrectas. Verifique e intente de nuevo.")
+                st.error("Credenciales incorrectas.intente de nuevo.")
                 
     st.stop() # Bloquea el resto del dashboard hasta que se autentique
 
