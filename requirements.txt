@@ -7,3 +7,4 @@ plotly
 streamlit-autorefresh
 xgboost
 scikit-learn
+pillow  
