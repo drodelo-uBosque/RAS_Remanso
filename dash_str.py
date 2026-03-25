@@ -50,37 +50,38 @@ def iniciar_servicios():
         st.error("Error al cargar modelos IA (.pkl)"); st.stop()
 
 # =========================================================
-# 2. SISTEMA DE LOGIN (CON LOGO AJUSTADO)
+# 2. SISTEMA DE LOGIN (CON LOGO INSTITUCIONAL)
 # =========================================================
 if "auth" not in st.session_state:
     st.session_state.auth = False
 
 if not st.session_state.auth:
-    # Aumentamos el tamaño de las columnas laterales [1.5, 1, 1.5] 
-    # para que la columna central (el logo) sea más pequeña
-    col_izq, col_central, col_der = st.columns([1, 2, 1])
+    # Centramos el contenido del login
+    col_a, col_logo, col_b = st.columns([1, 2, 1])
     
-    with col_central:
-        # OPCIÓN A: Usar width para definir un tamaño fijo en píxeles (ej: 150)
-        # OPCIÓN B: use_container_width=True se adaptará al ancho de esta columna pequeña
+    with col_logo:
+        # 1. Ponemos el logo centrado arriba del título
         try:
-            st.image("logo_1.png", width=300) # <--- Cambia 180 por el tamaño que prefieras
+            st.image("logo_1.png", use_container_width=True)
         except:
-            st.warning("Logo no encontrado")
+            st.warning("⚠️ Archivo logo_1.png no encontrado en el repositorio.")
             
-        st.markdown("<h2 style='text-align: center;'>🔒 Acceso</h2>", unsafe_allow_html=True)
+        st.title("🔒 Control de Acceso")
+        st.subheader("Plataforma IoT - RAS El remanso (UDCA)")
         
-        u = st.text_input("Usuario")
-        p = st.text_input("Contraseña", type="password")
+        # 2. Formulario de credenciales
+        u = st.text_input("Usuario Administrador", placeholder="Ej: admin")
+        p = st.text_input("Contraseña de Acceso", type="password")
         
-        if st.button("🚀 Ingresar", use_container_width=True):
+        if st.button("Ingresar al Dashboard", use_container_width=True):
             if u == "admin" and p == "ras2026":
                 st.session_state.auth = True
+                st.success("Acceso concedido. Cargando sistema...")
                 st.rerun()
             else:
-                st.error("Error de acceso")
+                st.error("Credenciales incorrectas. Verifique e intente de nuevo.")
                 
-    st.stop()
+    st.stop() # Bloquea el resto del dashboard hasta que se autentique
 
 # =========================================================
 # 3. CARGA DE DATOS Y SIDEBAR TÉCNICO
