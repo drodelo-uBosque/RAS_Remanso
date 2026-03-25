@@ -149,7 +149,15 @@ except:
 # =========================================================
 # 5. INTERFAZ DE USUARIO
 # =========================================================
-st.title("Sistema IoT RAS - Unidad Tematica El Remanso UDCA")
+with col_logo_header:
+    try:
+        # Cargamos el mismo archivo logo_1.png
+        # Ajusta el width (ancho en píxeles) para que no se vea muy grande (ej: 200 o 250)
+        st.image("logo_11.png", width=220) 
+    except:
+        st.warning("⚠️ No se pudo cargar el logo principal (logo_1.png).")
+        
+st.title("Sistema IoT RAS - Unidad Académica El Remanso UDCA")
 hora_proyectada = (ahora + timedelta(hours=jornada_hrs)).strftime("%H:%M")
 st.info(f"Proyectando comportamiento para las **{hora_proyectada}** ({jornada_hrs}h de horizonte)")
 
