@@ -88,7 +88,7 @@ if 'historial' not in st.session_state:
 # --- MÉTRICAS DE VALIDACIÓN EN SIDEBAR ---
 if len(st.session_state.historial) > 5:
     st.sidebar.markdown("---")
-    st.sidebar.subheader("📊 Rendimiento del Modelo")
+    st.sidebar.subheader("Rendimiento del Modelo")
     y_true = st.session_state.historial["T_R"].values
     y_pred = st.session_state.historial["T_P"].values
     mae = mean_absolute_error(y_true, y_pred)
@@ -135,7 +135,7 @@ except:
 # =========================================================
 # 5. INTERFAZ DE USUARIO
 # =========================================================
-st.title("🌊 Dashboard Inteligente RAS - UDCA")
+st.title("Sistema IoT RAS - Unidad Tematica El Remanso UDCA")
 hora_proyectada = (ahora + timedelta(hours=jornada_hrs)).strftime("%H:%M")
 st.info(f"Proyectando comportamiento para las **{hora_proyectada}** ({jornada_hrs}h de horizonte)")
 
@@ -159,9 +159,9 @@ st.markdown("---")
 
 # Métricas Principales
 m1, m2, m3 = st.columns(3)
-m1.metric("🌡️ Temperatura Actual", f"{t_now:.1f} °C")
-m2.metric(f"🔮 Predicción (+{jornada_hrs}h)", f"{tf:.1f} °C", f"{tf-t_now:.2f} Δ")
-m3.metric("🧪 pH Actual", f"{p_now:.2f}")
+m1.metric("Temperatura Actual", f"{t_now:.1f} °C")
+m2.metric(f"Predicción (+{jornada_hrs}h)", f"{tf:.1f} °C", f"{tf-t_now:.2f} Δ")
+m3.metric("pH Actual", f"{p_now:.2f}")
 
 # GRÁFICAS CON BANDAS DE INCERTIDUMBRE
 c_a, c_b = st.columns(2)
@@ -187,7 +187,7 @@ with c_b:
 # =========================================================
 # 6. GRÁFICA DE TDS (SÓLIDOS TOTALES DISUELTOS)
 # =========================================================
-st.markdown("### 💧 Calidad del Agua: Sólidos Totales Disueltos")
+st.markdown("TDS (Sólidos Totales Disueltos)")
 fig_tds = go.Figure()
 
 # Gráfica de área para TDS
@@ -225,4 +225,4 @@ if st.sidebar.button("Cerrar Sesión"):
     st.rerun()
 
 csv = st.session_state.historial.to_csv(index=False).encode('utf-8')
-st.sidebar.download_button("📥 Descargar Dataset Tesis", csv, f"ras_udca_{ahora.strftime('%H%M')}.csv", "text/csv")
+st.sidebar.download_button("Descargar Dataset Tesis", csv, f"ras_udca_{ahora.strftime('%H%M')}.csv", "text/csv")
