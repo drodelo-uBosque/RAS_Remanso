@@ -22,7 +22,7 @@ except:
     favicon = "🐟"
 
 st.set_page_config(
-    page_title="RAS UDCA - Monitor Inteligente",
+    page_title="Sistema IoT RAS - Unidad Tematica El Remanso UDCA",
     layout="wide",
     page_icon=favicon
 )
