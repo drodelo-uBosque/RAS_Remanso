@@ -184,6 +184,40 @@ with c_b:
     fig_p.update_layout(template="plotly_dark", title="Tendencia pH Proyectada", height=400)
     st.plotly_chart(fig_p, use_container_width=True)
 
+# =========================================================
+# 6. GRÁFICA DE TDS (SÓLIDOS TOTALES DISUELTOS)
+# =========================================================
+st.markdown("### 💧 Calidad del Agua: Sólidos Totales Disueltos")
+fig_tds = go.Figure()
+
+# Gráfica de área para TDS
+fig_tds.add_trace(go.Scatter(
+    x=st.session_state.historial["Hora"], 
+    y=st.session_state.historial["TDS"], 
+    fill='tozeroy', 
+    name="TDS (ppm)", 
+    line=dict(color='#00ff88', width=2),
+    fillcolor='rgba(0, 255, 136, 0.1)'
+))
+
+# Línea de límite técnico (TDS_LIMITE)
+fig_tds.add_shape(
+    type="line", line=dict(color="red", dash="dash"),
+    x0=st.session_state.historial["Hora"].iloc[0] if not st.session_state.historial.empty else 0,
+    y0=TDS_LIMITE, 
+    x1=st.session_state.historial["Hora"].iloc[-1] if not st.session_state.historial.empty else 1,
+    y1=TDS_LIMITE
+)
+
+fig_tds.update_layout(
+    template="plotly_dark", 
+    title=f"Historial de TDS (Límite: {TDS_LIMITE} ppm)", 
+    height=300,
+    xaxis_title="Hora de muestreo",
+    yaxis_title="ppm"
+)
+st.plotly_chart(fig_tds, use_container_width=True)
+
 # Footer y Descarga
 st.sidebar.markdown("---")
 if st.sidebar.button("Cerrar Sesión"):
