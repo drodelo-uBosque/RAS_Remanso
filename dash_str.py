@@ -70,8 +70,8 @@ if not st.session_state.auth:
         st.subheader("Plataforma IoT - RAS El remanso (UDCA)")
         
         # 2. Formulario de credenciales
-        u = st.text_input("Usuario Administrador", placeholder="Ej: admin")
-        p = st.text_input("Contraseña de Acceso", type="password")
+        u = st.text_input("USUARIO", placeholder="Ej: admin")
+        p = st.text_input("CONTRASEÑA", type="password")
         
         if st.button("Ingresar a la plataforma", use_container_width=True):
             if u == "admin" and p == "ras_2026":
