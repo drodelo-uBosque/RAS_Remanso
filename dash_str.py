@@ -112,7 +112,7 @@ if not st.session_state.auth:
         else:
             st.markdown("<h1 style='text-align: center;'>🐟</h1>", unsafe_allow_html=True)
             
-        st.markdown("<div class='login-header'><h2 style='text-align: center;'>Control de Acceso</h2><p style='text-align: center; color: gray;'>Plataforma IoT - RAS El Remanso (UDCA)</p></div>", unsafe_allow_html=True)
+        st.markdown("<div class='login-header'><h2 style='text-align: center;'>Inicio de Sesión</h2><p style='text-align: center; color: gray;'>Plataforma IoT - RAS El Remanso (UDCA)</p></div>", unsafe_allow_html=True)
         
         with st.container(border=True):
             u = st.text_input("USUARIO", placeholder="Ej: admin")
