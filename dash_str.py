@@ -88,19 +88,7 @@ def iniciar_servicios():
 # =========================================================
 # 2. SISTEMA DE LOGIN (CON LOGO INSTITUCIONAL)
 # =========================================================
-if "auth" not in st.session_state:
-    st.session_state.auth = False
 
-if not st.session_state.auth:
-    # Centramos el contenido del login
-    col_a, col_logo, col_b = st.columns([1, 2, 1])
-    
-    with col_logo:
-        # 1. Ponemos el logo centrado arriba del título
-        try:
-            st.image("logo_1.png", use_container_width=True)
-        except:
-            st.warning("Archivo logo_1.png no encontrado en el repositorio.")
             
         st.title("Control de Acceso")
         st.subheader("Plataforma IoT - RAS El remanso (UDCA)")
