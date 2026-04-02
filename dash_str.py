@@ -56,44 +56,7 @@ def iniciar_servicios():
 # CONTROL DE LOGO EN LOGIN (CSS + HTML)
 # =========================================================
 
-# Creamos un contenedor centrado con CSS inyectado
-st.markdown(
-    """
-    <style>
-    .centered-logo {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        margin-bottom: 20px;
-    }
-    .centered-logo img {
-        width: 180px; /* <--- AQUÍ PUEDES AJUSTAR EL TAMAÑO (Ej: 150px o 200px) */
-        height: auto;
-        border-radius: 10px; /* Opcional: bordes redondeados */
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
 
-# Renderizamos el logo usando el estilo anterior
-# Nota: Asegúrate de que logo_1.png esté en la misma carpeta que tu script
-import base64
-
-def get_base64_image(image_path):
-    with open(image_path, "rb") as img_file:
-        return base64.b64encode(img_file.read()).decode()
-
-try:
-    img_base64 = get_base64_image("logo_1.png")
-    st.markdown(
-        f'<div class="centered-logo"><img src="data:image/png;base64,{img_base64}"></div>',
-        unsafe_allow_html=True
-    )
-except Exception as e:
-    st.warning("📍 Sistema de Monitoreo RAS - UDCA")
-
-# Debajo de esto seguiría tu st.title("Acceso al Sistema") o el formulario
             
     st.title("Control de Acceso")
     st.subheader("Plataforma IoT - RAS El remanso (UDCA)")
