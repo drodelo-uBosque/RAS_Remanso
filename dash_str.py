@@ -10,13 +10,27 @@ from streamlit_autorefresh import st_autorefresh
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 from PIL import Image
 import os
+import base64
+
+# =========================================================
+# 0. FUNCIONES GLOBALES (DEFINIDAS AL INICIO)
+# =========================================================
+def get_base64_image(image_path):
+    """Convierte imagen a Base64 para inyección HTML."""
+    try:
+        if os.path.exists(image_path):
+            with open(image_path, "rb") as img_file:
+                return base64.b64encode(img_file.read()).decode()
+    except Exception:
+        return None
+    return None
 
 # =========================================================
 # 1. CONFIGURACIÓN DE PÁGINA Y FAVICON
 # =========================================================
-# Intentamos cargar el logo local como icono de pestaña
+ruta_logo = os.path.join(os.path.dirname(__file__), 'logo_1.png')
+
 try:
-    ruta_logo = os.path.join(os.path.dirname(__file__), 'logo_1.png')
     favicon = Image.open(ruta_logo)
 except:
     favicon = "🐟"
@@ -50,13 +64,13 @@ def iniciar_servicios():
         st.error("Error al cargar modelos IA (.pkl)"); st.stop()
 
 # =========================================================
-
-# =========================================================
 # 2. SISTEMA DE LOGIN (LOGO INTEGRADO AL FONDO)
 # =========================================================
+if "auth" not in st.session_state:
+    st.session_state.auth = False
 
 if not st.session_state.auth:
-    # --- ESTILO CSS ACTUALIZADO (SIN BORDES NI SOMBRAS) ---
+    # --- ESTILO CSS (SIN BORDES NI SOMBRAS PARA INTEGRACIÓN TOTAL) ---
     st.markdown(
         """
         <style>
@@ -66,14 +80,15 @@ if not st.session_state.auth:
             align-items: center;
             margin-bottom: 25px;
             margin-top: -20px;
-            background-color: transparent; /* Asegura que no haya color de fondo */
+            background-color: transparent;
         }
         .centered-logo img {
             width: 180px; 
             height: auto;
-            border: none;    /* Quita cualquier borde */
-            border-radius: 0; /* Quita el redondeado */
-            box-shadow: none; /* Quita la sombra para que se vea plano */
+            border: none;
+            border-radius: 0;
+            box-shadow: none;
+            /* mix-blend-mode: multiply; */ /* Opcional: para fundir blancos si el fondo no es exacto */
         }
         .login-header h2 {
             margin-top: 0;
@@ -87,10 +102,9 @@ if not st.session_state.auth:
     _, col_login, _ = st.columns([1, 1.5, 1])
     
     with col_login:
-        img_b64 = get_base64_image("logo_1.png")
+        img_b64 = get_base64_image(ruta_logo)
         
         if img_b64:
-            # El div ahora es totalmente limpio
             st.markdown(
                 f'<div class="centered-logo"><img src="data:image/png;base64,{img_b64}"></div>',
                 unsafe_allow_html=True
@@ -120,22 +134,24 @@ if not st.session_state.auth:
 mod_t, mod_p, cols_modelo = iniciar_servicios()
 st_autorefresh(interval=5000, key="global_refresh")
 
-st.sidebar.image("logo_1.png", use_container_width=True)
+try:
+    st.sidebar.image(ruta_logo, use_container_width=True)
+except:
+    pass
+
 st.sidebar.title("Configuración IA")
 
-# Horizonte de Predicción (Jornadas)
 jornada_hrs = st.sidebar.select_slider("Horizonte de Predicción (Hrs):", options=[1, 4, 8, 12, 24], value=1)
 ajuste_sensibilidad = st.sidebar.slider("Calibración IA (Offset)", -5.0, 5.0, 0.0, 0.1)
 
 if 'historial' not in st.session_state:
     st.session_state.historial = pd.DataFrame(columns=["Hora", "T_R", "T_P", "P_R", "P_P", "TDS", "Error_Banda"])
 
-# --- MÉTRICAS DE VALIDACIÓN EN SIDEBAR ---
 if len(st.session_state.historial) > 5:
     st.sidebar.markdown("---")
     st.sidebar.subheader("Rendimiento del Modelo")
-    y_true = st.session_state.historial["T_R"].values
-    y_pred = st.session_state.historial["T_P"].values
+    y_true = st.session_state.historial["T_R"].values.astype(float)
+    y_pred = st.session_state.historial["T_P"].values.astype(float)
     mae = mean_absolute_error(y_true, y_pred)
     rmse = np.sqrt(mean_squared_error(y_true, y_pred))
     st.sidebar.metric("MAE (Error Medio)", f"{mae:.3f} °C")
@@ -152,16 +168,12 @@ try:
         p_now = float(ref.get('ph', 7.0))
         tds_now = float(ref.get('tds', 0.0))
         
-        # Preparar entrada para XGBoost
         entrada = pd.DataFrame([[t_now, p_now, float(jornada_hrs)]], columns=['temperatura', 'ph', 'horas_transcurridas'])
         for c in cols_modelo:
             if c not in entrada.columns: entrada[c] = 0
         
-        # Predicción con Desplazamiento
         tf = t_now + float(mod_t.predict(entrada[cols_modelo])[0]) + ajuste_sensibilidad
         pf = p_now + float(mod_p.predict(entrada[cols_modelo])[0]) + (ajuste_sensibilidad * 0.1)
-        
-        # Banda de incertidumbre (crece con el tiempo)
         banda = (jornada_hrs / 24.0) * 1.2
         
         nuevo = {
@@ -178,24 +190,20 @@ except:
     t_now, p_now, tds_now, tf, pf, banda = 18.0, 7.0, 0.0, 18.0, 7.0, 0.1
 
 # =========================================================
-# 5. INTERFAZ DE USUARIO
+# 5. INTERFAZ DE USUARIO PRINCIPAL
 # =========================================================
-# Creamos las columnas justo antes de usarlas para evitar el error de NameError
-c1, c2, c3 = st.columns([1, 0.8, 1]) 
-
-with c2: # Usamos la columna central
+c_head1, c_head2 = st.columns([0.15, 0.85])
+with c_head1:
     try:
-        # Cargamos el logo con un tamaño fijo para que no sea gigante
-        st.image("logo_11.png", width=200) 
-    except Exception as e:
-        # Si el archivo no existe, mostramos un mensaje discreto para no romper la app
-        st.caption("Sistema RAS - UDCA")
-        
-st.title("Sistema IoT RAS - Unidad Académica El Remanso UDCA")
+        st.image(ruta_logo, width=80)
+    except:
+        pass
+with c_head2:
+    st.title("Sistema IoT RAS - Unidad Académica El Remanso UDCA")
+
 hora_proyectada = (ahora + timedelta(hours=jornada_hrs)).strftime("%H:%M")
 st.info(f"Proyectando comportamiento para las **{hora_proyectada}** ({jornada_hrs}h de horizonte)")
 
-# Semáforo de Estado
 def obtener_estado_valido(valor, min_v, max_v):
     if min_v <= valor <= max_v: return "🟢 Óptimo", "complete"
     elif (min_v - 2) <= valor <= (max_v + 2): return "🟡 Alerta", "running"
@@ -213,68 +221,39 @@ with s3:
 
 st.markdown("---")
 
-# Métricas Principales
 m1, m2, m3 = st.columns(3)
 m1.metric("Temperatura Actual", f"{t_now:.1f} °C")
 m2.metric(f"Predicción (+{jornada_hrs}h)", f"{tf:.1f} °C", f"{tf-t_now:.2f} Δ")
 m3.metric("pH Actual", f"{p_now:.2f}")
 
-# GRÁFICAS CON BANDAS DE INCERTIDUMBRE
-c_a, c_b = st.columns(2)
+c_graph_a, c_graph_b = st.columns(2)
 
-with c_a:
+with c_graph_a:
     fig_t = go.Figure()
-    # Banda de error
     fig_t.add_trace(go.Scatter(x=st.session_state.historial["Hora"], y=st.session_state.historial["T_P"] + st.session_state.historial["Error_Banda"], mode='lines', line=dict(width=0), showlegend=False))
-    fig_t.add_trace(go.Scatter(x=st.session_state.historial["Hora"], y=st.session_state.historial["T_P"] - st.session_state.historial["Error_Banda"], fill='tonexty', fillcolor='rgba(255, 255, 0, 0.1)', mode='lines', line=dict(width=0), name="Margen de Confianza IA"))
-    
+    fig_t.add_trace(go.Scatter(x=st.session_state.historial["Hora"], y=st.session_state.historial["T_P"] - st.session_state.historial["Error_Banda"], fill='tonexty', fillcolor='rgba(255, 255, 0, 0.1)', mode='lines', line=dict(width=0), name="Confianza IA"))
     fig_t.add_trace(go.Scatter(x=st.session_state.historial["Hora"], y=st.session_state.historial["T_R"], name="Real", line=dict(color="#00d4ff", width=4)))
     fig_t.add_trace(go.Scatter(x=st.session_state.historial["Hora"], y=st.session_state.historial["T_P"], name="Predicción", line=dict(dash='dot', color="yellow")))
     fig_t.update_layout(template="plotly_dark", title="Tendencia Térmica Proyectada", height=400)
     st.plotly_chart(fig_t, use_container_width=True)
 
-with c_b:
+with c_graph_b:
     fig_p = go.Figure()
     fig_p.add_trace(go.Scatter(x=st.session_state.historial["Hora"], y=st.session_state.historial["P_R"], name="Real", line=dict(color="#ff00ff", width=4)))
     fig_p.add_trace(go.Scatter(x=st.session_state.historial["Hora"], y=st.session_state.historial["P_P"], name="Predicción", line=dict(dash='dot', color="yellow")))
     fig_p.update_layout(template="plotly_dark", title="Tendencia pH Proyectada", height=400)
     st.plotly_chart(fig_p, use_container_width=True)
 
-# =========================================================
-# 6. GRÁFICA DE TDS (SÓLIDOS TOTALES DISUELTOS)
-# =========================================================
-st.markdown("TDS (Sólidos Totales Disueltos)")
+st.markdown("### TDS (Sólidos Totales Disueltos)")
 fig_tds = go.Figure()
+fig_tds.add_trace(go.Scatter(x=st.session_state.historial["Hora"], y=st.session_state.historial["TDS"], fill='tozeroy', name="TDS (ppm)", line=dict(color='#00ff88', width=2), fillcolor='rgba(0, 255, 136, 0.1)'))
 
-# Gráfica de área para TDS
-fig_tds.add_trace(go.Scatter(
-    x=st.session_state.historial["Hora"], 
-    y=st.session_state.historial["TDS"], 
-    fill='tozeroy', 
-    name="TDS (ppm)", 
-    line=dict(color='#00ff88', width=2),
-    fillcolor='rgba(0, 255, 136, 0.1)'
-))
+if not st.session_state.historial.empty:
+    fig_tds.add_shape(type="line", line=dict(color="red", dash="dash"), x0=st.session_state.historial["Hora"].iloc[0], y0=TDS_LIMITE, x1=st.session_state.historial["Hora"].iloc[-1], y1=TDS_LIMITE)
 
-# Línea de límite técnico (TDS_LIMITE)
-fig_tds.add_shape(
-    type="line", line=dict(color="red", dash="dash"),
-    x0=st.session_state.historial["Hora"].iloc[0] if not st.session_state.historial.empty else 0,
-    y0=TDS_LIMITE, 
-    x1=st.session_state.historial["Hora"].iloc[-1] if not st.session_state.historial.empty else 1,
-    y1=TDS_LIMITE
-)
-
-fig_tds.update_layout(
-    template="plotly_dark", 
-    title=f"Historial de TDS (Límite: {TDS_LIMITE} ppm)", 
-    height=300,
-    xaxis_title="Hora de muestreo",
-    yaxis_title="ppm"
-)
+fig_tds.update_layout(template="plotly_dark", height=300, xaxis_title="Hora", yaxis_title="ppm")
 st.plotly_chart(fig_tds, use_container_width=True)
 
-# Footer y Descarga
 st.sidebar.markdown("---")
 if st.sidebar.button("Cerrar Sesión"):
     st.session_state.auth = False
@@ -282,4 +261,3 @@ if st.sidebar.button("Cerrar Sesión"):
 
 csv = st.session_state.historial.to_csv(index=False).encode('utf-8')
 st.sidebar.download_button("Descargar Dataset Tesis", csv, f"ras_udca_{ahora.strftime('%H%M')}.csv", "text/csv")
-
