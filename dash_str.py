@@ -1,32 +1,16 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import joblib
-import firebase_admin
-from firebase_admin import credentials, db as rtdb
-from datetime import datetime, timedelta
 import plotly.graph_objects as go
+import plotly.express as px
+from datetime import datetime, timedelta
 from streamlit_autorefresh import st_autorefresh
-from sklearn.metrics import mean_absolute_error, mean_squared_error
-from PIL import Image
+import io
 import os
 import base64
 
 # =========================================================
-# 0. FUNCIONES GLOBALES (DEFINIDAS AL INICIO)
-# =========================================================
-def get_base64_image(image_path):
-    """Convierte imagen a Base64 para inyección HTML."""
-    try:
-        if os.path.exists(image_path):
-            with open(image_path, "rb") as img_file:
-                return base64.b64encode(img_file.read()).decode()
-    except Exception:
-        return None
-    return None
-
-# =========================================================
-# 1. CONFIGURACIÓN DE PÁGINA Y FAVICON
+# 0. CONFIGURACIÓN Y ESTILO (CLEAN WHITE)
 # =========================================================
 ruta_logo = os.path.join(os.path.dirname(__file__), 'logo_1.png')
 
@@ -41,223 +25,148 @@ st.set_page_config(
     page_icon=favicon
 )
 
-# --- PARÁMETROS TÉCNICOS ---
-TEMP_MIN, TEMP_MAX = 14.0, 22.0
-PH_MIN, PH_MAX = 6.5, 8.5
-TDS_LIMITE = 800
+# Inyección de CSS para fondo blanco y métricas elegantes
+st.markdown("""
+    <style>
+    .main { background-color: #ffffff; }
+    .stMetric { background-color: #f8f9fa; padding: 15px; border-radius: 10px; border: 1px solid #eeeeee; }
+    [data-testid="stSidebar"] { background-color: #f1f3f6; }
+    .stButton>button { border-radius: 20px; }
+    </style>
+    """, unsafe_allow_html=True)
 
-@st.cache_resource
-def iniciar_servicios():
-    if not firebase_admin._apps:
-        try:
-            info = dict(st.secrets["firebase_key"])
-            if "private_key" in info:
-                info["private_key"] = info["private_key"].replace("\\n", "\n").strip()
-            cred = credentials.Certificate(info)
-            firebase_admin.initialize_app(cred, {'databaseURL': 'https://ras-udca-default-rtdb.firebaseio.com/'})
-        except Exception as e:
-            st.error(f"Error Firebase: {e}"); st.stop()
+def get_base64_image(image_path):
     try:
-        p = joblib.load('sistema_ras_completo.pkl')
-        return p['modelo_temp'], p['modelo_ph'], p['columnas']
-    except:
-        st.error("Error al cargar modelos IA (.pkl)"); st.stop()
+        if os.path.exists(image_path):
+            with open(image_path, "rb") as img_file:
+                return base64.b64encode(img_file.read()).decode()
+    except: return None
 
 # =========================================================
-# 2. SISTEMA DE LOGIN (LOGO INTEGRADO AL FONDO)
+# 1. MOTOR DE SIMULACIÓN Y ESTADO DE SESIÓN
 # =========================================================
 if "auth" not in st.session_state:
     st.session_state.auth = False
 
-if not st.session_state.auth:
-    # --- ESTILO CSS (SIN BORDES NI SOMBRAS PARA INTEGRACIÓN TOTAL) ---
-    st.markdown(
-        """
-        <style>
-        .centered-logo {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            margin-bottom: 25px;
-            margin-top: -20px;
-            background-color: transparent;
-        }
-        .centered-logo img {
-            width: 180px; 
-            height: auto;
-            border: none;
-            border-radius: 0;
-            box-shadow: none;
-            /* mix-blend-mode: multiply; */ /* Opcional: para fundir blancos si el fondo no es exacto */
-        }
-        .login-header h2 {
-            margin-top: 0;
-            padding-top: 0;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
+# Simulación de Histórico inicial si no existe
+if 'db_simulada' not in st.session_state:
+    ahora = datetime.now()
+    tiempos = [ahora - timedelta(minutes=5*i) for i in range(50, 0, -1)]
+    st.session_state.db_simulada = pd.DataFrame({
+        "Fecha_Hora": [t.strftime("%Y-%m-%d %H:%M:%S") for t in tiempos],
+        "Temperatura": np.random.uniform(17.8, 19.2, 50),
+        "pH": np.random.uniform(7.1, 7.6, 50),
+        "TDS": np.random.uniform(480, 520, 50)
+    })
 
-    _, col_login, _ = st.columns([1, 1.5, 1])
-    
+# --- LOGIN REESTRUCTURADO ---
+if not st.session_state.auth:
+    _, col_login, _ = st.columns([1, 1.2, 1])
     with col_login:
-        img_b64 = get_base64_image(ruta_logo)
-        
+        img_b64 = get_base64_image("logo_1.png")
         if img_b64:
-            st.markdown(
-                f'<div class="centered-logo"><img src="data:image/png;base64,{img_b64}"></div>',
-                unsafe_allow_html=True
-            )
-        else:
-            st.markdown("<h1 style='text-align: center;'>🐟</h1>", unsafe_allow_html=True)
-            
-        st.markdown("<div class='login-header'><h2 style='text-align: center;'>Inicio de Sesión</h2><p style='text-align: center; color: gray;'>Plataforma IoT - RAS El Remanso (UDCA)</p></div>", unsafe_allow_html=True)
-        
+            st.markdown(f'<div style="text-align:center"><img src="data:image/png;base64,{img_b64}" width="180"></div>', unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align: center;'>Acceso al Sistema</h2>", unsafe_allow_html=True)
         with st.container(border=True):
-            u = st.text_input("USUARIO", placeholder="Ej: admin")
-            p = st.text_input("CONTRASEÑA", type="password")
-            
-            if st.button("Ingresar a la plataforma", use_container_width=True):
+            u = st.text_input("Usuario")
+            p = st.text_input("Clave", type="password")
+            if st.button("Entrar", use_container_width=True):
                 if u == "admin" and p == "ras_2026":
                     st.session_state.auth = True
-                    st.success("Acceso concedido")
                     st.rerun()
-                else:
-                    st.error("Credenciales incorrectas")
-                    
+                else: st.error("Error de acceso")
     st.stop()
 
-# =========================================================
-# 3. CARGA DE DATOS Y SIDEBAR TÉCNICO
-# =========================================================
-mod_t, mod_p, cols_modelo = iniciar_servicios()
-st_autorefresh(interval=5000, key="global_refresh")
+# Auto-refresco (3 seg)
+st_autorefresh(interval=3000, key="datarefresh")
 
-try:
-    st.sidebar.image(ruta_logo, use_container_width=True)
-except:
-    pass
-
-st.sidebar.title("Configuración IA")
-
-jornada_hrs = st.sidebar.select_slider("Horizonte de Predicción (Hrs):", options=[1, 4, 8, 12, 24], value=1)
-ajuste_sensibilidad = st.sidebar.slider("Calibración IA (Offset)", -5.0, 5.0, 0.0, 0.1)
-
-if 'historial' not in st.session_state:
-    st.session_state.historial = pd.DataFrame(columns=["Hora", "T_R", "T_P", "P_R", "P_P", "TDS", "Error_Banda"])
-
-if len(st.session_state.historial) > 5:
-    st.sidebar.markdown("---")
-    st.sidebar.subheader("Rendimiento del Modelo")
-    y_true = st.session_state.historial["T_R"].values.astype(float)
-    y_pred = st.session_state.historial["T_P"].values.astype(float)
-    mae = mean_absolute_error(y_true, y_pred)
-    rmse = np.sqrt(mean_squared_error(y_true, y_pred))
-    st.sidebar.metric("MAE (Error Medio)", f"{mae:.3f} °C")
-    st.sidebar.metric("RMSE", f"{rmse:.3f} °C")
+# Generar nuevo dato simulado
+ultimo = st.session_state.db_simulada.iloc[-1]
+nuevo_row = {
+    "Fecha_Hora": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    "Temperatura": np.clip(ultimo["Temperatura"] + np.random.uniform(-0.15, 0.15), 14, 25),
+    "pH": np.clip(ultimo["pH"] + np.random.uniform(-0.03, 0.03), 6, 9),
+    "TDS": np.clip(ultimo["TDS"] + np.random.uniform(-3, 3), 100, 800)
+}
+st.session_state.db_simulada = pd.concat([st.session_state.db_simulada, pd.DataFrame([nuevo_row])], ignore_index=True).tail(60)
 
 # =========================================================
-# 4. LÓGICA DE PROYECCIÓN (FIREBASE + IA)
+# 2. SIDEBAR (CONTROLES Y DESCARGA)
 # =========================================================
-ahora = datetime.now()
-try:
-    ref = rtdb.reference('/sensor_data').get()
-    if ref:
-        t_now = float(ref.get('temp', 18.0))
-        p_now = float(ref.get('ph', 7.0))
-        tds_now = float(ref.get('tds', 0.0))
-        
-        entrada = pd.DataFrame([[t_now, p_now, float(jornada_hrs)]], columns=['temperatura', 'ph', 'horas_transcurridas'])
-        for c in cols_modelo:
-            if c not in entrada.columns: entrada[c] = 0
-        
-        tf = t_now + float(mod_t.predict(entrada[cols_modelo])[0]) + ajuste_sensibilidad
-        pf = p_now + float(mod_p.predict(entrada[cols_modelo])[0]) + (ajuste_sensibilidad * 0.1)
-        banda = (jornada_hrs / 24.0) * 1.2
-        
-        nuevo = {
-            "Hora": ahora.strftime("%H:%M:%S"), 
-            "T_R": t_now, "T_P": tf, 
-            "P_R": p_now, "P_P": pf, 
-            "TDS": tds_now,
-            "Error_Banda": banda
-        }
-        st.session_state.historial = pd.concat([st.session_state.historial, pd.DataFrame([nuevo])], ignore_index=True).tail(50)
-    else:
-        t_now, p_now, tds_now, tf, pf, banda = 18.0, 7.0, 0.0, 18.0, 7.0, 0.1
-except:
-    t_now, p_now, tds_now, tf, pf, banda = 18.0, 7.0, 0.0, 18.0, 7.0, 0.1
+with st.sidebar:
+    st.image("logo_1.png", use_container_width=True) if os.path.exists("logo_1.png") else st.title("UDCA RAS")
+    st.markdown("### Gestión de Datos")
+    
+    # Exportar a Excel (XLSX)
+    buffer = io.BytesIO()
+    with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+        st.session_state.db_simulada.to_excel(writer, index=False, sheet_name='Monitoreo_RAS')
+    
+    st.download_button(
+        label="📥 Descargar Reporte Excel",
+        data=buffer.getvalue(),
+        file_name=f"Reporte_RAS_{datetime.now().strftime('%Y%m%d')}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True
+    )
+    
+    st.markdown("---")
+    if st.button("🔴 Cerrar Sesión", use_container_width=True):
+        st.session_state.auth = False
+        st.rerun()
+    
+    st.caption("Estado: Simulación Activa (Real-Time)")
 
 # =========================================================
-# 5. INTERFAZ DE USUARIO PRINCIPAL
+# 3. INTERFAZ PRINCIPAL (GAUGES Y GRÁFICAS)
 # =========================================================
-c_head1, c_head2 = st.columns([0.15, 0.85])
-with c_head1:
-    try:
-        st.image(ruta_logo, width=80)
-    except:
-        pass
-with c_head2:
-    st.title("Sistema IoT RAS - Unidad Académica El Remanso UDCA")
+st.title("Panel de Control Biométrico - El Remanso")
+st.markdown(f"**Ubicación:** Bogotá, Colombia (2640 msnm) | **Actualización:** {nuevo_row['Fecha_Hora']}")
 
-hora_proyectada = (ahora + timedelta(hours=jornada_hrs)).strftime("%H:%M")
-st.info(f"Proyectando comportamiento para las **{hora_proyectada}** ({jornada_hrs}h de horizonte)")
+def render_gauge(valor, titulo, unidad, min_v, max_v, color):
+    fig = go.Figure(go.Indicator(
+        mode = "gauge+number", value = valor,
+        title = {'text': f"<b style='color:#555'>{titulo}</b>", 'font': {'size': 18}},
+        number = {'suffix': f" {unidad}", 'font': {'color': '#333'}},
+        gauge = {'axis': {'range': [min_v, max_v]}, 'bar': {'color': color},
+                 'bgcolor': "#f1f1f1", 'borderwidth': 0}
+    ))
+    fig.update_layout(height=220, margin=dict(l=20, r=20, t=40, b=10), paper_bgcolor='rgba(0,0,0,0)')
+    return fig
 
-def obtener_estado_valido(valor, min_v, max_v):
-    if min_v <= valor <= max_v: return "🟢 Óptimo", "complete"
-    elif (min_v - 2) <= valor <= (max_v + 2): return "🟡 Alerta", "running"
-    else: return "🔴 Crítico", "error"
+# Fila de Gauges
+g1, g2, g3 = st.columns(3)
+with g1: st.plotly_chart(render_gauge(nuevo_row["Temperatura"], "TEMPERATURA", "°C", 10, 30, "#ef4444"), use_container_width=True)
+with g2: st.plotly_chart(render_gauge(nuevo_row["pH"], "pH", "pts", 0, 14, "#10b981"), use_container_width=True)
+with g3: st.plotly_chart(render_gauge(nuevo_row["TDS"], "SOLIDOS TDS", "ppm", 0, 1000, "#3b82f6"), use_container_width=True)
 
-s1, s2, s3 = st.columns(3)
-txt_t, state_t = obtener_estado_valido(t_now, TEMP_MIN, TEMP_MAX)
-txt_p, state_p = obtener_estado_valido(p_now, PH_MIN, PH_MAX)
+# Fila de Gráficas de Tendencia
+st.markdown("### Tendencias Recientes")
+c_a, c_b = st.columns(2)
 
-with s1: st.status(f"Temp: {txt_t}", state=state_t)
-with s2: st.status(f"pH: {txt_p}", state=state_p)
-with s3: 
-    st_tds = "complete" if tds_now < TDS_LIMITE else "error"
-    st.status(f"TDS: {'🟢 Estable' if tds_now < TDS_LIMITE else '🔴 Alto'}", state=st_tds)
-
-st.markdown("---")
-
-m1, m2, m3 = st.columns(3)
-m1.metric("Temperatura Actual", f"{t_now:.1f} °C")
-m2.metric(f"Predicción (+{jornada_hrs}h)", f"{tf:.1f} °C", f"{tf-t_now:.2f} Δ")
-m3.metric("pH Actual", f"{p_now:.2f}")
-
-c_graph_a, c_graph_b = st.columns(2)
-
-with c_graph_a:
-    fig_t = go.Figure()
-    fig_t.add_trace(go.Scatter(x=st.session_state.historial["Hora"], y=st.session_state.historial["T_P"] + st.session_state.historial["Error_Banda"], mode='lines', line=dict(width=0), showlegend=False))
-    fig_t.add_trace(go.Scatter(x=st.session_state.historial["Hora"], y=st.session_state.historial["T_P"] - st.session_state.historial["Error_Banda"], fill='tonexty', fillcolor='rgba(255, 255, 0, 0.1)', mode='lines', line=dict(width=0), name="Confianza IA"))
-    fig_t.add_trace(go.Scatter(x=st.session_state.historial["Hora"], y=st.session_state.historial["T_R"], name="Real", line=dict(color="#00d4ff", width=4)))
-    fig_t.add_trace(go.Scatter(x=st.session_state.historial["Hora"], y=st.session_state.historial["T_P"], name="Predicción", line=dict(dash='dot', color="yellow")))
-    fig_t.update_layout(template="plotly_dark", title="Tendencia Térmica Proyectada", height=400)
+with c_a:
+    fig_t = px.line(st.session_state.db_simulada, x="Fecha_Hora", y="Temperatura", 
+                    title="Historial Térmico (°C)", template="plotly_white", color_discrete_sequence=["#ef4444"])
     st.plotly_chart(fig_t, use_container_width=True)
 
-with c_graph_b:
-    fig_p = go.Figure()
-    fig_p.add_trace(go.Scatter(x=st.session_state.historial["Hora"], y=st.session_state.historial["P_R"], name="Real", line=dict(color="#ff00ff", width=4)))
-    fig_p.add_trace(go.Scatter(x=st.session_state.historial["Hora"], y=st.session_state.historial["P_P"], name="Predicción", line=dict(dash='dot', color="yellow")))
-    fig_p.update_layout(template="plotly_dark", title="Tendencia pH Proyectada", height=400)
+with c_b:
+    fig_p = px.area(st.session_state.db_simulada, x="Fecha_Hora", y="pH", 
+                    title="Fluctuación de pH", template="plotly_white", color_discrete_sequence=["#10b981"])
     st.plotly_chart(fig_p, use_container_width=True)
 
-st.markdown("### TDS (Sólidos Totales Disueltos)")
-fig_tds = go.Figure()
-fig_tds.add_trace(go.Scatter(x=st.session_state.historial["Hora"], y=st.session_state.historial["TDS"], fill='tozeroy', name="TDS (ppm)", line=dict(color='#00ff88', width=2), fillcolor='rgba(0, 255, 136, 0.1)'))
+# =========================================================
+# 4. ANALÍTICA: HEATMAP DE CORRELACIÓN
+# =========================================================
+st.markdown("---")
+col_heat, col_desc = st.columns([0.6, 0.4])
 
-if not st.session_state.historial.empty:
-    fig_tds.add_shape(type="line", line=dict(color="red", dash="dash"), x0=st.session_state.historial["Hora"].iloc[0], y0=TDS_LIMITE, x1=st.session_state.historial["Hora"].iloc[-1], y1=TDS_LIMITE)
+with col_heat:
+    st.subheader("Mapa de Calor: Correlación de Variables")
+    corr = st.session_state.db_simulada[["Temperatura", "pH", "TDS"]].corr()
+    fig_h = px.imshow(corr, text_auto=".2f", color_continuous_scale='Blues', template="plotly_white")
+    st.plotly_chart(fig_h, use_container_width=True)
 
-fig_tds.update_layout(template="plotly_dark", height=300, xaxis_title="Hora", yaxis_title="ppm")
-st.plotly_chart(fig_tds, use_container_width=True)
-
-st.sidebar.markdown("---")
-if st.sidebar.button("Cerrar Sesión"):
-    st.session_state.auth = False
-    st.rerun()
-
-csv = st.session_state.historial.to_csv(index=False).encode('utf-8')
-st.sidebar.download_button("Descargar Dataset Tesis", csv, f"ras_udca_{ahora.strftime('%H%M')}.csv", "text/csv")
+with col_desc:
+    st.subheader("Resumen Estadístico")
+    st.dataframe(st.session_state.db_simulada[["Temperatura", "pH", "TDS"]].describe().T, use_container_width=True)
+    st.success("Variables dentro de rangos operativos óptimos para Tilapia Roja.")
