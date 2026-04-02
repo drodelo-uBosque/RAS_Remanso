@@ -12,14 +12,45 @@ from PIL import Image
 import os
 
 # =========================================================
-# 1. CONFIGURACIÓN DE PÁGINA Y FAVICON
+# CONTROL DE LOGO EN LOGIN (CSS + HTML)
 # =========================================================
-# Intentamos cargar el logo local como icono de pestaña
+
+# Creamos un contenedor centrado con CSS inyectado
+st.markdown(
+    """
+    <style>
+    .centered-logo {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+    .centered-logo img {
+        width: 180px; /* <--- AQUÍ PUEDES AJUSTAR EL TAMAÑO (Ej: 150px o 200px) */
+        height: auto;
+        border-radius: 10px; /* Opcional: bordes redondeados */
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# Renderizamos el logo usando el estilo anterior
+# Nota: Asegúrate de que logo_1.png esté en la misma carpeta que tu script
+import base64
+
+def get_base64_image(image_path):
+    with open(image_path, "rb") as img_file:
+        return base64.b64encode(img_file.read()).decode()
+
 try:
-    ruta_logo = os.path.join(os.path.dirname(__file__), 'logo_1.png')
-    favicon = Image.open(ruta_logo)
-except:
-    favicon = "🐟"
+    img_base64 = get_base64_image("logo_1.png")
+    st.markdown(
+        f'<div class="centered-logo"><img src="data:image/png;base64,{img_base64}"></div>',
+        unsafe_allow_html=True
+    )
+except Exception as e:
+    st.warning("📍 Sistema de Monitoreo RAS - UDCA")
 
 st.set_page_config(
     page_title="Sistema IoT RAS - Unidad Académica El Remanso UDCA",
