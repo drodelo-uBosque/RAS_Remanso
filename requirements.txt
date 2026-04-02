@@ -8,3 +8,4 @@ streamlit-autorefresh
 xgboost
 scikit-learn
 pillow  
+openpyxl
