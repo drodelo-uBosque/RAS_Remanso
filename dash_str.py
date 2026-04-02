@@ -95,8 +95,8 @@ except Exception as e:
 
 # Debajo de esto seguiría tu st.title("Acceso al Sistema") o el formulario
             
-        st.title("Control de Acceso")
-        st.subheader("Plataforma IoT - RAS El remanso (UDCA)")
+    st.title("Control de Acceso")
+    st.subheader("Plataforma IoT - RAS El remanso (UDCA)")
         
         # 2. Formulario de credenciales
         u = st.text_input("USUARIO", placeholder="Ej: admin")
