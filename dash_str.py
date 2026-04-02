@@ -108,7 +108,7 @@ with st.sidebar:
 # =========================================================
 # 4. GAUGES CON ZONAS SUBÓPTIMAS
 # =========================================================
-st.title("Monitoreo en tiempo real - Unidad El Remanso")
+st.title("Monitoreo en tiempo real - RAS Unidad Académica El Remanso")
 
 def render_gauge_tri(valor, titulo, unidad, limites):
     # limites: [Crit_Min, Sub_Min, Opt_Min, Opt_Max, Sub_Max, Crit_Max]
@@ -133,12 +133,12 @@ def render_gauge_tri(valor, titulo, unidad, limites):
 
 g1, g2, g3 = st.columns(3)
 with g1: st.plotly_chart(render_gauge_tri(nueva_fila["Temperatura"], "TEMPERATURA", "°C", RANGOS_TEMP), use_container_width=True)
-with g2: st.plotly_chart(render_gauge_tri(nueva_fila["pH"], "NIVEL pH", "pts", RANGOS_PH), use_container_width=True)
+with g2: st.plotly_chart(render_gauge_tri(nueva_fila["pH"], "pH", "pts", RANGOS_PH), use_container_width=True)
 with g3: 
     # Gauge TDS (Binario: Estable / Crítico)
     fig_tds_g = go.Figure(go.Indicator(
         mode = "gauge+number", value = nueva_fila["TDS"],
-        title = {'text': "<b>SÓLIDOS TDS</b>"},
+        title = {'text': "<b>TDS</b>"},
         gauge = {
             'axis': {'range': [0, 1000]},
             'steps': [
