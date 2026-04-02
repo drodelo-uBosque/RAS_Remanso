@@ -11,6 +11,11 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error
 from PIL import Image
 import os
 
+try:
+    ruta_logo = os.path.join(os.path.dirname(__file__), 'logo_1.png')
+    favicon = Image.open(ruta_logo)
+except:
+    favicon = "🐟"
 # =========================================================
 # CONTROL DE LOGO EN LOGIN (CSS + HTML)
 # =========================================================
