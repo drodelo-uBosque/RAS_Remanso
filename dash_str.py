@@ -50,11 +50,7 @@ def iniciar_servicios():
         st.error("Error al cargar modelos IA (.pkl)"); st.stop()
 
 # =========================================================
-a veces es difícil de centrar y dimensionar) por la inyección de HTML/CSS con Base64. Esto permitirá que el logo se vea exactamente del tamaño que quieres y perfectamente centrado.
 
-Aquí tienes el código de la Sección 2 listo para copiar y reemplazar:
-
-Python
 # =========================================================
 # 2. SISTEMA DE LOGIN (CON LOGO CSS + HTML INYECTADO)
 # =========================================================
