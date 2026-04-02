@@ -22,7 +22,7 @@ except:
     favicon = "🐟"
 
 st.set_page_config(
-    page_title="Sistema IoT RAS - Unidad Tematica El Remanso UDCA",
+    page_title="Sistema IoT RAS - Unidad Académica El Remanso UDCA",
     layout="wide",
     page_icon=favicon
 )
@@ -64,9 +64,9 @@ if not st.session_state.auth:
         try:
             st.image("logo_1.png", use_container_width=True)
         except:
-            st.warning("⚠️ Archivo logo_1.png no encontrado en el repositorio.")
+            st.warning("Archivo logo_1.png no encontrado en el repositorio.")
             
-        st.title("🔒 Control de Acceso")
+        st.title("Control de Acceso")
         st.subheader("Plataforma IoT - RAS El remanso (UDCA)")
         
         # 2. Formulario de credenciales
@@ -90,7 +90,7 @@ mod_t, mod_p, cols_modelo = iniciar_servicios()
 st_autorefresh(interval=5000, key="global_refresh")
 
 st.sidebar.image("logo_1.png", use_container_width=True)
-st.sidebar.title("⚙️ Configuración IA")
+st.sidebar.title("Configuración IA")
 
 # Horizonte de Predicción (Jornadas)
 jornada_hrs = st.sidebar.select_slider("Horizonte de Predicción (Hrs):", options=[1, 4, 8, 12, 24], value=1)
