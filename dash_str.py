@@ -16,7 +16,7 @@ import os
 # =========================================================
 # Intentamos cargar el logo local como icono de pestaña
 try:
-    ruta_logo = os.path.join(os.path.dirname(__file__), 'logo_1.png')
+    ruta_logo = os.path.join(os.path.dirname(__file__), 'logo.png')
     favicon = Image.open(ruta_logo)
 except:
     favicon = "🐟"
