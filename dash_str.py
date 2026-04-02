@@ -52,26 +52,11 @@ def iniciar_servicios():
 # =========================================================
 
 # =========================================================
-# 2. SISTEMA DE LOGIN (CON LOGO CSS + HTML INYECTADO)
+# 2. SISTEMA DE LOGIN (LOGO INTEGRADO AL FONDO)
 # =========================================================
 
-# Función para convertir imagen a Base64 (necesaria para el HTML)
-def get_base64_image(image_path):
-    import base64
-    try:
-        # Intentamos con la ruta absoluta y relativa por seguridad
-        if os.path.exists(image_path):
-            with open(image_path, "rb") as img_file:
-                return base64.b64encode(img_file.read()).decode()
-    except:
-        return None
-    return None
-
-if "auth" not in st.session_state:
-    st.session_state.auth = False
-
 if not st.session_state.auth:
-    # --- BLOQUE DE ESTILO CSS ---
+    # --- ESTILO CSS ACTUALIZADO (SIN BORDES NI SOMBRAS) ---
     st.markdown(
         """
         <style>
@@ -79,45 +64,42 @@ if not st.session_state.auth:
             display: flex;
             justify-content: center;
             align-items: center;
-            margin-bottom: 20px;
-            margin-top: -30px;
+            margin-bottom: 25px;
+            margin-top: -20px;
+            background-color: transparent; /* Asegura que no haya color de fondo */
         }
         .centered-logo img {
-            width: 180px; /* Tamaño optimizado para el login */
+            width: 180px; 
             height: auto;
-            border-radius: 12px;
-            box-shadow: 0px 4px 10px rgba(0,0,0,0.3);
+            border: none;    /* Quita cualquier borde */
+            border-radius: 0; /* Quita el redondeado */
+            box-shadow: none; /* Quita la sombra para que se vea plano */
         }
-        .login-header {
-            text-align: center;
-            margin-bottom: 20px;
+        .login-header h2 {
+            margin-top: 0;
+            padding-top: 0;
         }
         </style>
         """,
         unsafe_allow_html=True
     )
 
-    # Centramos el contenido del login con columnas
-    _, col_login, _ = st.columns([1, 2, 1])
+    _, col_login, _ = st.columns([1, 1.5, 1])
     
     with col_login:
-        # 1. Renderizado del Logo mediante HTML
         img_b64 = get_base64_image("logo_1.png")
         
         if img_b64:
+            # El div ahora es totalmente limpio
             st.markdown(
                 f'<div class="centered-logo"><img src="data:image/png;base64,{img_b64}"></div>',
                 unsafe_allow_html=True
             )
         else:
-            # Si el archivo no carga, mostramos un aviso elegante
             st.markdown("<h1 style='text-align: center;'>🐟</h1>", unsafe_allow_html=True)
-            st.caption("<p style='text-align: center;'>Nodo Sensor - El Remanso</p>", unsafe_allow_html=True)
             
-        # 2. Títulos del Login
-        st.markdown("<div class='login-header'><h2>Control de Acceso</h2><p>Plataforma IoT - RAS El Remanso (UDCA)</p></div>", unsafe_allow_html=True)
+        st.markdown("<div class='login-header'><h2 style='text-align: center;'>Control de Acceso</h2><p style='text-align: center; color: gray;'>Plataforma IoT - RAS El Remanso (UDCA)</p></div>", unsafe_allow_html=True)
         
-        # 3. Formulario de credenciales con contenedor visual
         with st.container(border=True):
             u = st.text_input("USUARIO", placeholder="Ej: admin")
             p = st.text_input("CONTRASEÑA", type="password")
@@ -125,12 +107,12 @@ if not st.session_state.auth:
             if st.button("Ingresar a la plataforma", use_container_width=True):
                 if u == "admin" and p == "ras_2026":
                     st.session_state.auth = True
-                    st.success("Acceso concedido. Cargando sistema...")
+                    st.success("Acceso concedido")
                     st.rerun()
                 else:
-                    st.error("Credenciales incorrectas. Intente de nuevo.")
+                    st.error("Credenciales incorrectas")
                     
-    st.stop() # Bloquea el resto del dashboard hasta que se autentique
+    st.stop()
 
 # =========================================================
 # 3. CARGA DE DATOS Y SIDEBAR TÉCNICO
