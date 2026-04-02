@@ -16,7 +16,7 @@ import os
 # =========================================================
 # Intentamos cargar el logo local como icono de pestaña
 try:
-    ruta_logo = os.path.join(os.path.dirname(__file__), 'logo.png')
+    ruta_logo = os.path.join(os.path.dirname(__file__), 'logo_1.png')
     favicon = Image.open(ruta_logo)
 except:
     favicon = "🐟"
@@ -50,68 +50,38 @@ def iniciar_servicios():
         st.error("Error al cargar modelos IA (.pkl)"); st.stop()
 
 # =========================================================
+# 2. SISTEMA DE LOGIN (CON LOGO INSTITUCIONAL)
 # =========================================================
-# 2. SISTEMA DE LOGIN (CON LOGO CSS + HTML)
-# =========================================================
-
-def get_base64_image(image_path):
-    # Intentamos abrir el archivo. Si falla, devolvemos None.
-    try:
-        with open(image_path, "rb") as img_file:
-            return base64.b64encode(img_file.read()).decode()
-    except:
-        return None
-
 if "auth" not in st.session_state:
     st.session_state.auth = False
 
 if not st.session_state.auth:
-    # Estilos CSS
-    st.markdown("""
-        <style>
-        .centered-logo {
-            display: flex;
-            justify-content: center;
-            margin-bottom: 20px;
-        }
-        .centered-logo img {
-            width: 180px; 
-            height: auto;
-            border-radius: 12px;
-        }
-        </style>
-        """, unsafe_allow_html=True)
-
-    _, col_login, _ = st.columns([1, 1.5, 1])
+    # Centramos el contenido del login
+    col_a, col_logo, col_b = st.columns([1, 2, 1])
     
-    with col_login:
-        # LLAMADA AL LOGO:
-        # Aquí es donde se "llama" al nombre del archivo. 
-        # Si 'ruta_logo' falla, intentamos con el nombre directo 'logo_1.png'
-        img_b64 = get_base64_image(ruta_logo) or get_base64_image("logo_1.png")
-
-        if img_b64:
-            st.markdown(
-                f'<div class="centered-logo"><img src="data:image/png;base64,{img_b64}"></div>',
-                unsafe_allow_html=True
-            )
-        else:
-            # Si no encuentra el logo, ponemos un icono de respaldo para que no se vea vacío
-            st.markdown("<h1 style='text-align: center;'>🐟</h1>", unsafe_allow_html=True)
-
-        st.markdown("<h2 style='text-align: center;'>Control de Acceso</h2>", unsafe_allow_html=True)
-        
-        with st.container(border=True):
-            u = st.text_input("USUARIO", placeholder="Ej: admin")
-            p = st.text_input("CONTRASEÑA", type="password")
+    with col_logo:
+        # 1. Ponemos el logo centrado arriba del título
+        try:
+            st.image("logo_1.png", use_container_width=True)
+        except:
+            st.warning("Archivo logo_1.png no encontrado en el repositorio.")
             
-            if st.button("Ingresar a la plataforma", use_container_width=True):
-                if u == "admin" and p == "ras_2026":
-                    st.session_state.auth = True
-                    st.rerun()
-                else:
-                    st.error("Credenciales incorrectas")
-    st.stop()  # Bloquea el resto del dashboard hasta que se autentique
+        st.title("Control de Acceso")
+        st.subheader("Plataforma IoT - RAS El remanso (UDCA)")
+        
+        # 2. Formulario de credenciales
+        u = st.text_input("USUARIO", placeholder="Ej: admin")
+        p = st.text_input("CONTRASEÑA", type="password")
+        
+        if st.button("Ingresar a la plataforma", use_container_width=True):
+            if u == "admin" and p == "ras_2026":
+                st.session_state.auth = True
+                st.success("Acceso concedido. Cargando sistema...")
+                st.rerun()
+            else:
+                st.error("Credenciales incorrectas.intente de nuevo.")
+                
+    st.stop() # Bloquea el resto del dashboard hasta que se autentique
 
 # =========================================================
 # 3. CARGA DE DATOS Y SIDEBAR TÉCNICO
