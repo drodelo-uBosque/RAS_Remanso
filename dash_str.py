@@ -10,25 +10,33 @@ import io
 import os
 
 # =========================================================
-# 0. CONFIGURACIÓN TÉCNICA Y LOGOS
+# 0. CONFIGURACIÓN TÉCNICA (LÍMITES UDCA)
 # =========================================================
-TEMP_MIN, TEMP_MAX = 14.0, 22.0
-PH_MIN, PH_MAX = 6.5, 8.5
-TDS_LIMITE = 800
+# Rangos: [Min_Critico, Min_Suboptimo, Optimo_Min, Optimo_Max, Max_Suboptimo, Max_Critico]
+RANGOS_TEMP = [10.0, 14.0, 17.0, 21.0, 24.0, 30.0]
+RANGOS_PH = [4.0, 6.0, 6.8, 8.2, 9.0, 11.0]
+TDS_UMBRAL_ALERTA = 600
+TDS_MAX = 800
 
 ruta_logo = os.path.join(os.path.dirname(__file__), 'logo_1.png')
 try:
     favicon = Image.open(ruta_logo)
 except:
-    favicon = "🐟"
+    favicon = None
 
-st.set_page_config(page_title="Sistema RAS - UDCA", layout="wide", page_icon=favicon)
+st.set_page_config(page_title="Plataforma IoT RAS Unidad Académica El Remanso - UDCA", layout="wide", page_icon=favicon)
 
-# Estilo para fondo blanco
-st.markdown("<style>.main { background-color: #ffffff; } [data-testid='stSidebar'] { background-color: #f1f3f6; }</style>", unsafe_allow_html=True)
+# CSS para Interfaz Limpia y Profesional
+st.markdown("""
+    <style>
+    .main { background-color: #ffffff; }
+    [data-testid="stSidebar"] { background-color: #f8f9fa; }
+    .stMetric { background-color: #ffffff; border: 1px solid #eeeeee; }
+    </style>
+    """, unsafe_allow_html=True)
 
 # =========================================================
-# 1. GESTIÓN DE SESIÓN Y DATOS
+# 1. AUTENTICACIÓN
 # =========================================================
 if "auth" not in st.session_state:
     st.session_state.auth = False
@@ -41,126 +49,145 @@ if not st.session_state.auth:
         with st.container(border=True):
             u = st.text_input("Usuario")
             p = st.text_input("Clave", type="password")
-            if st.button("Entrar", use_container_width=True):
+            if st.button("Ingresar", use_container_width=True):
                 if u == "admin" and p == "ras_2026":
                     st.session_state.auth = True
                     st.rerun()
                 else: st.error("Credenciales incorrectas")
     st.stop()
 
+# =========================================================
+# 2. MOTOR DE SIMULACIÓN ESTABILIZADO (MEDIA MÓVIL)
+# =========================================================
 st_autorefresh(interval=3000, key="datarefresh")
 
 if 'db_simulada' not in st.session_state:
     ahora = datetime.now()
-    tiempos = [ahora - timedelta(minutes=2*i) for i in range(40, 0, -1)]
+    tiempos = [ahora - timedelta(minutes=2*i) for i in range(50, 0, -1)]
     st.session_state.db_simulada = pd.DataFrame({
-        "Hora": [t.strftime("%H:%M:%S") for t in tiempos],
-        "Temperatura": np.random.uniform(18.5, 19.5, 40),
-        "pH": np.random.uniform(7.3, 7.5, 40),
-        "TDS": np.random.uniform(480, 520, 40)
+        "Fecha_Hora": [t.strftime("%H:%M:%S") for t in tiempos],
+        "Temperatura": np.random.uniform(18.5, 19.5, 50),
+        "pH": np.random.uniform(7.3, 7.5, 50),
+        "TDS": np.random.uniform(490, 510, 50)
     })
 
-# Simulación con ruido visual (puntos que se mueven)
-ultimo = st.session_state.db_simulada.iloc[-1]
-nuevo_row = {
-    "Hora": datetime.now().strftime("%H:%M:%S"),
-    "Temperatura": ultimo["Temperatura"] + np.random.uniform(-0.15, 0.15),
-    "pH": ultimo["pH"] + np.random.uniform(-0.02, 0.02),
-    "TDS": ultimo["TDS"] + np.random.uniform(-4, 4)
+# Generación estabilizada: El nuevo valor es un promedio ponderado del anterior
+def generar_valor_estable(actual, variacion, min_val, max_val):
+    ruido = np.random.uniform(-variacion, variacion)
+    nuevo = (actual * 0.8) + ((actual + ruido) * 0.2) # Filtro de suavizado
+    return np.clip(nuevo, min_val, max_val)
+
+ult = st.session_state.db_simulada.iloc[-1]
+nueva_fila = {
+    "Fecha_Hora": datetime.now().strftime("%H:%M:%S"),
+    "Temperatura": generar_valor_estable(ult["Temperatura"], 0.3, 10, 30),
+    "pH": generar_valor_estable(ult["pH"], 0.05, 0, 14),
+    "TDS": generar_valor_estable(ult["TDS"], 5.0, 0, 1000)
 }
-st.session_state.db_simulada = pd.concat([st.session_state.db_simulada, pd.DataFrame([nuevo_row])], ignore_index=True).tail(40)
+st.session_state.db_simulada = pd.concat([st.session_state.db_simulada, pd.DataFrame([nueva_fila])], ignore_index=True).tail(50)
 
 # =========================================================
-# 2. SIDEBAR (DESCARGAS)
+# 3. SIDEBAR Y EXPORTACIÓN
 # =========================================================
 with st.sidebar:
     if os.path.exists(ruta_logo): st.image(ruta_logo, use_container_width=True)
-    st.markdown("### Exportar Datos")
+    st.markdown("### Exportar Datos Historicos")
     try:
-        buffer = io.BytesIO()
-        with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-            st.session_state.db_simulada.to_excel(writer, index=False, sheet_name='RAS_Data')
-        st.download_button("📥 Descargar Excel", buffer.getvalue(), f"RAS_{datetime.now().strftime('%H%M')}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
+        buf = io.BytesIO()
+        with pd.ExcelWriter(buf, engine='openpyxl') as w:
+            st.session_state.db_simulada.to_excel(w, index=False, sheet_name='Data_RAS')
+        st.download_button("Descargar Reporte Excel", buf.getvalue(), "Reporte_RAS.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
     except:
-        st.download_button("📝 Descargar CSV", st.session_state.db_simulada.to_csv(index=False).encode('utf-8'), "datos.csv", "text/csv", use_container_width=True)
+        st.download_button("Descargar Reporte CSV", st.session_state.db_simulada.to_csv(index=False).encode('utf-8'), "Reporte_RAS.csv", "text/csv", use_container_width=True)
     
-    if st.button("🔴 Cerrar Sesión", use_container_width=True):
+    st.markdown("---")
+    if st.button("Cerrar Sesión", use_container_width=True):
         st.session_state.auth = False
         st.rerun()
 
 # =========================================================
-# 3. GAUGES CON ZONAS OPERATIVAS
+# 4. GAUGES CON ZONAS SUBÓPTIMAS
 # =========================================================
-st.title("Panel de Control RAS - UDCA")
+st.title("Monitoreo en tiempo real - Unidad El Remanso")
 
-def render_gauge(valor, titulo, unidad, min_v, max_v, opt_min, opt_max):
+def render_gauge_tri(valor, titulo, unidad, limites):
+    # limites: [Crit_Min, Sub_Min, Opt_Min, Opt_Max, Sub_Max, Crit_Max]
     fig = go.Figure(go.Indicator(
         mode = "gauge+number", value = valor,
         title = {'text': f"<b>{titulo}</b>", 'font': {'size': 18}},
-        number = {'suffix': f" {unidad}", 'font': {'color': '#333'}},
+        number = {'suffix': f" {unidad}"},
         gauge = {
-            'axis': {'range': [min_v, max_v]},
-            'bar': {'color': "#333"},
+            'axis': {'range': [limites[0], limites[5]]},
+            'bar': {'color': "#2d3436"},
             'steps': [
-                {'range': [min_v, opt_min], 'color': "#fee2e2"}, # Rojo suave (Bajo)
-                {'range': [opt_min, opt_max], 'color': "#dcfce7"}, # Verde (Óptimo)
-                {'range': [opt_max, max_v], 'color': "#fee2e2"}  # Rojo suave (Alto)
-            ],
-            'threshold': {
-                'line': {'color': "red", 'width': 4},
-                'thickness': 0.75, 'value': valor
-            }
+                {'range': [limites[0], limites[1]], 'color': "#ff6b6b"}, # Crítico Bajo
+                {'range': [limites[1], limites[2]], 'color': "#feca57"}, # Subóptimo Bajo
+                {'range': [limites[2], limites[3]], 'color': "#1dd1a1"}, # Óptimo
+                {'range': [limites[3], limites[4]], 'color': "#feca57"}, # Subóptimo Alto
+                {'range': [limites[4], limites[5]], 'color': "#ff6b6b"}  # Crítico Alto
+            ]
         }
     ))
-    fig.update_layout(height=220, margin=dict(l=20, r=20, t=50, b=10), paper_bgcolor='rgba(0,0,0,0)')
+    fig.update_layout(height=220, margin=dict(l=25, r=25, t=50, b=10), paper_bgcolor='rgba(0,0,0,0)')
     return fig
 
 g1, g2, g3 = st.columns(3)
-with g1: st.plotly_chart(render_gauge(nuevo_row["Temperatura"], "TEMP", "°C", 10, 30, TEMP_MIN, TEMP_MAX), use_container_width=True)
-with g2: st.plotly_chart(render_gauge(nuevo_row["pH"], "pH", "pts", 0, 14, PH_MIN, PH_MAX), use_container_width=True)
-with g3: st.plotly_chart(render_gauge(nuevo_row["TDS"], "TDS", "ppm", 0, 1000, 0, TDS_LIMITE), use_container_width=True)
+with g1: st.plotly_chart(render_gauge_tri(nueva_fila["Temperatura"], "TEMPERATURA", "°C", RANGOS_TEMP), use_container_width=True)
+with g2: st.plotly_chart(render_gauge_tri(nueva_fila["pH"], "NIVEL pH", "pts", RANGOS_PH), use_container_width=True)
+with g3: 
+    # Gauge TDS (Binario: Estable / Crítico)
+    fig_tds_g = go.Figure(go.Indicator(
+        mode = "gauge+number", value = nueva_fila["TDS"],
+        title = {'text': "<b>SÓLIDOS TDS</b>"},
+        gauge = {
+            'axis': {'range': [0, 1000]},
+            'steps': [
+                {'range': [0, TDS_UMBRAL_ALERTA], 'color': "#1dd1a1"},
+                {'range': [TDS_UMBRAL_ALERTA, TDS_MAX], 'color': "#feca57"},
+                {'range': [TDS_MAX, 1000], 'color': "#ff6b6b"}
+            ]
+        }
+    ))
+    fig_tds_g.update_layout(height=220, margin=dict(l=25, r=25, t=50, b=10), paper_bgcolor='rgba(0,0,0,0)')
+    st.plotly_chart(fig_tds_g, use_container_width=True)
 
 # =========================================================
-# 4. GRÁFICAS (LÍNEAS + PUNTOS)
+# 5. GRÁFICAS DE TENDENCIA (LÍNEAS + MARCADORES)
 # =========================================================
-st.markdown("### 📈 Monitoreo en Tiempo Real")
-c1, c2 = st.columns(2)
+st.markdown("### Historial de Variables en Tiempo Real")
+c_a, c_b = st.columns(2)
 
-with c1:
-    fig_t = go.Figure()
-    fig_t.add_trace(go.Scatter(x=st.session_state.db_simulada["Hora"], y=st.session_state.db_simulada["Temperatura"],
-                               mode='lines+markers', line=dict(color='#ef4444', width=2), marker=dict(size=6), name="Temp"))
-    fig_t.update_layout(title="Variación Térmica (°C)", template="plotly_white", yaxis=dict(autorange=True))
-    st.plotly_chart(fig_t, use_container_width=True)
+with c_a:
+    f_temp = px.line(st.session_state.db_simulada, x="Fecha_Hora", y="Temperatura", 
+                     markers=True, title="Tendencia Térmica", color_discrete_sequence=["#ff6b6b"], template="plotly_white")
+    f_temp.update_yaxes(autorange=True)
+    st.plotly_chart(f_temp, use_container_width=True)
 
-with c2:
-    fig_p = go.Figure()
-    fig_p.add_trace(go.Scatter(x=st.session_state.db_simulada["Hora"], y=st.session_state.db_simulada["pH"],
-                               mode='lines+markers', line=dict(color='#10b981', width=2), marker=dict(size=6), name="pH"))
-    fig_p.update_layout(title="Fluctuación de pH", template="plotly_white", yaxis=dict(autorange=True))
-    st.plotly_chart(fig_p, use_container_width=True)
+with c_b:
+    f_ph = px.line(st.session_state.db_simulada, x="Fecha_Hora", y="pH", 
+                   markers=True, title="Tendencia pH", color_discrete_sequence=["#1dd1a1"], template="plotly_white")
+    f_ph.update_yaxes(autorange=True)
+    st.plotly_chart(f_ph, use_container_width=True)
 
-# TDS de ancho completo abajo
-fig_tds = go.Figure()
-fig_tds.add_trace(go.Scatter(x=st.session_state.db_simulada["Hora"], y=st.session_state.db_simulada["TDS"],
-                             fill='tozeroy', mode='lines+markers', line=dict(color='#3b82f6'), name="TDS"))
-fig_tds.update_layout(title="Historial de Sólidos Disueltos (TDS ppm)", template="plotly_white", height=300)
-st.plotly_chart(fig_tds, use_container_width=True)
+# TDS Ancho Completo
+f_tds = px.area(st.session_state.db_simulada, x="Fecha_Hora", y="TDS", 
+                markers=True, title="Historial de Sólidos (TDS ppm)", color_discrete_sequence=["#48dbfb"], template="plotly_white")
+st.plotly_chart(f_tds, use_container_width=True)
 
 # =========================================================
-# 5. HEATMAP DEL DATASET DE ENTRENAMIENTO
+# 6. HEATMAP DATASET ENTRENAMIENTO
 # =========================================================
 st.markdown("---")
-st.subheader("🔥 Análisis Científico: Dataset de Entrenamiento")
+st.subheader("Análisis Científico: Distribución del Dataset de Entrenamiento")
 
-# Simulación de dataset histórico para el heatmap
-np.random.seed(42)
+# Simulación de carga de dataset maestro
 df_train = pd.DataFrame({
-    'Temp': np.random.normal(18.5, 2, 800),
-    'pH': np.random.normal(7.4, 0.5, 800)
+    'Temperatura': np.random.normal(RANGOS_TEMP[2]+1, 2, 1000),
+    'pH': np.random.normal(RANGOS_PH[2]+0.5, 0.6, 1000)
 })
 
-fig_h = px.density_heatmap(df_train, x="Temp", y="pH", nbinsx=30, nbinsy=30, 
-                           color_continuous_scale="Viridis", title="Mapa de Densidad: Relación Temp vs pH Histórica",
-                           labels={'Temp':'Temperatura (°C)', 'pH':'Nivel pH'}, template="plotly_white")
-st.plotly_chart(fig_h, use_container_width=True)
+f_heat = px.density_heatmap(df_train, x="Temperatura", y="pH", 
+                            color_continuous_scale="Viridis", template="plotly_white",
+                            labels={'Temperatura':'Temperatura (°C)', 'pH':'pH'},
+                            title="Mapa de Calor: Concentración de Datos Históricos")
+st.plotly_chart(f_heat, use_container_width=True)
