@@ -52,14 +52,10 @@ def iniciar_servicios():
 # =========================================================
 # 2. SISTEMA DE LOGIN (CON LOGO INSTITUCIONAL)
 # =========================================================
-# =========================================================
-# CONTROL DE LOGO EN LOGIN (CSS + HTML)
-# =========================================================
-
 
             
-    st.title("Control de Acceso")
-    st.subheader("Plataforma IoT - RAS El remanso (UDCA)")
+        st.title("Control de Acceso")
+        st.subheader("Plataforma IoT - RAS El remanso (UDCA)")
         
         # 2. Formulario de credenciales
         u = st.text_input("USUARIO", placeholder="Ej: admin")
@@ -243,3 +239,4 @@ if st.sidebar.button("Cerrar Sesión"):
 
 csv = st.session_state.historial.to_csv(index=False).encode('utf-8')
 st.sidebar.download_button("Descargar Dataset Tesis", csv, f"ras_udca_{ahora.strftime('%H%M')}.csv", "text/csv")
+
