@@ -50,59 +50,57 @@ def iniciar_servicios():
         st.error("Error al cargar modelos IA (.pkl)"); st.stop()
 
 # =========================================================
+# =========================================================
 # 2. SISTEMA DE LOGIN (CON LOGO CSS + HTML)
 # =========================================================
 
-# Definimos la función de conversión Base64 fuera del bucle para mayor orden
 def get_base64_image(image_path):
-    
-    with open(image_path, "rb") as img_file:
-        return base64.b64encode(img_file.read()).decode()
+    # Intentamos abrir el archivo. Si falla, devolvemos None.
+    try:
+        with open(image_path, "rb") as img_file:
+            return base64.b64encode(img_file.read()).decode()
+    except:
+        return None
 
 if "auth" not in st.session_state:
     st.session_state.auth = False
 
 if not st.session_state.auth:
-    # --- ESTILO CSS PARA EL LOGO ---
-    st.markdown(
-        """
+    # Estilos CSS
+    st.markdown("""
         <style>
         .centered-logo {
             display: flex;
             justify-content: center;
-            align-items: center;
-            margin-bottom: 10px;
-            margin-top: -50px; /* Sube un poco el logo para aprovechar espacio */
+            margin-bottom: 20px;
         }
         .centered-logo img {
             width: 180px; 
             height: auto;
-            border-radius: 15px;
-            box-shadow: 0px 4px 15px rgba(0,0,0,0.3); /* Sombra elegante */
+            border-radius: 12px;
         }
         </style>
-        """,
-        unsafe_allow_html=True
-    )
+        """, unsafe_allow_html=True)
 
-    # Usamos una columna central para que el formulario no ocupe toda la pantalla
     _, col_login, _ = st.columns([1, 1.5, 1])
     
     with col_login:
-        # --- RENDERIZADO DEL LOGO ---
-        try:
-            img_b64 = get_base64_image(ruta_logo)
+        # LLAMADA AL LOGO:
+        # Aquí es donde se "llama" al nombre del archivo. 
+        # Si 'ruta_logo' falla, intentamos con el nombre directo 'logo_1.png'
+        img_b64 = get_base64_image(ruta_logo) or get_base64_image("logo_1.png")
+
+        if img_b64:
             st.markdown(
                 f'<div class="centered-logo"><img src="data:image/png;base64,{img_b64}"></div>',
                 unsafe_allow_html=True
             )
-        except:
-            st.write("📍 **Sistema RAS - UDCA**")
+        else:
+            # Si no encuentra el logo, ponemos un icono de respaldo para que no se vea vacío
+            st.markdown("<h1 style='text-align: center;'>🐟</h1>", unsafe_allow_html=True)
 
         st.markdown("<h2 style='text-align: center;'>Control de Acceso</h2>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center; color: gray;'>Plataforma IoT - RAS El Remanso</p>", unsafe_allow_html=True)
         
-        # Formulario con contenedor visual
         with st.container(border=True):
             u = st.text_input("USUARIO", placeholder="Ej: admin")
             p = st.text_input("CONTRASEÑA", type="password")
@@ -110,12 +108,10 @@ if not st.session_state.auth:
             if st.button("Ingresar a la plataforma", use_container_width=True):
                 if u == "admin" and p == "ras_2026":
                     st.session_state.auth = True
-                    st.success("Acceso concedido")
                     st.rerun()
                 else:
                     st.error("Credenciales incorrectas")
-                    
-    st.stop() # Bloquea el resto del dashboard hasta que se autentique
+    st.stop()  # Bloquea el resto del dashboard hasta que se autentique
 
 # =========================================================
 # 3. CARGA DE DATOS Y SIDEBAR TÉCNICO
