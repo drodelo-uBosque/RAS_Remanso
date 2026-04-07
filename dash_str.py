@@ -29,13 +29,6 @@ except:
 
 st.set_page_config(page_title="Sistema RAS - UDCA", layout="wide", page_icon=favicon)
 
-st.markdown("""
-    <style>
-    .main { background-color: #ffffff; }
-    [data-testid="stSidebar"] { background-color: #f8f9fa; }
-    </style>
-    """, unsafe_allow_html=True)
-
 # =========================================================
 # 1. SISTEMA DE AUTENTICACIÓN
 # =========================================================
@@ -58,7 +51,7 @@ if not st.session_state.auth:
     st.stop()
 
 # =========================================================
-# 2. MOTOR DE SIMULACIÓN ORGÁNICA (VIBRACIÓN NATURAL)
+# 2. MOTOR DE SIMULACIÓN NATURAL (RUIDO GAUSSIANO)
 # =========================================================
 st_autorefresh(interval=3000, key="datarefresh")
 
@@ -67,31 +60,31 @@ if 'db_simulada' not in st.session_state:
     tiempos = [ahora - timedelta(minutes=2*i) for i in range(50, 0, -1)]
     st.session_state.db_simulada = pd.DataFrame({
         "Fecha_Hora": [t.strftime("%H:%M:%S") for t in tiempos],
-        "Temperatura": np.random.uniform(20.4, 20.7, 50),
-        "pH": np.random.uniform(7.2, 7.4, 50),
-        "TDS": np.random.uniform(180.5, 181.5, 50)
+        "Temperatura": np.random.uniform(TEMP_MIN_SIM, TEMP_MAX_SIM, 50),
+        "pH": np.random.uniform(PH_MIN_SIM, PH_MAX_SIM, 50),
+        "TDS": np.random.uniform(TDS_MIN_SIM, TDS_MAX_SIM, 50)
     })
 
-def generar_vibracion(actual, variacion, min_v, max_v):
-    # Reducimos la inercia a 0.7 para que la gráfica tenga "movimiento"
-    cambio = np.random.uniform(-variacion, variacion)
-    nuevo = (actual * 0.7) + ((actual + cambio) * 0.3)
-    # Rebotar si toca los bordes para mantener la gráfica centrada
-    if nuevo >= max_v: nuevo = max_v - 0.05
-    if nuevo <= min_v: nuevo = min_v + 0.05
+def generar_lectura_realista(actual, escala, min_v, max_v):
+    # Usamos ruido normal (Gaussiano) para evitar el zigzag constante
+    ruido = np.random.normal(0, escala)
+    nuevo = actual + ruido
+    # Si se sale del rango, lo traemos de vuelta suavemente en lugar de rebotar
+    if nuevo > max_v: nuevo = max_v - np.random.uniform(0.01, 0.05)
+    if nuevo < min_v: nuevo = min_v + np.random.uniform(0.01, 0.05)
     return nuevo
 
 ult = st.session_state.db_simulada.iloc[-1]
 nueva_medicion = {
     "Fecha_Hora": datetime.now().strftime("%H:%M:%S"),
-    "Temperatura": generar_vibracion(ult["Temperatura"], 0.2, TEMP_MIN_SIM, TEMP_MAX_SIM),
-    "pH": generar_vibracion(ult["pH"], 0.06, PH_MIN_SIM, PH_MAX_SIM),
-    "TDS": generar_vibracion(ult["TDS"], 0.4, TDS_MIN_SIM, TDS_MAX_SIM)
+    "Temperatura": generar_lectura_realista(ult["Temperatura"], 0.08, TEMP_MIN_SIM, TEMP_MAX_SIM),
+    "pH": generar_lectura_realista(ult["pH"], 0.04, PH_MIN_SIM, PH_MAX_SIM),
+    "TDS": generar_lectura_realista(ult["TDS"], 0.15, TDS_MIN_SIM, TDS_MAX_SIM)
 }
 st.session_state.db_simulada = pd.concat([st.session_state.db_simulada, pd.DataFrame([nueva_medicion])], ignore_index=True).tail(50)
 
 # =========================================================
-# 3. SIDEBAR
+# 3. SIDEBAR Y PESTAÑAS
 # =========================================================
 with st.sidebar:
     if os.path.exists(ruta_logo): st.image(ruta_logo, use_container_width=True)
@@ -99,20 +92,15 @@ with st.sidebar:
     try:
         buf = io.BytesIO()
         with pd.ExcelWriter(buf, engine='openpyxl') as w:
-            st.session_state.db_simulada.to_excel(w, index=False, sheet_name='Monitoreo_RAS')
-        st.download_button("Descargar Reporte Excel", buf.getvalue(), "Reporte_RAS.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
+            st.session_state.db_simulada.to_excel(w, index=False, sheet_name='Monitoreo')
+        st.download_button("Descargar Reporte Excel", buf.getvalue(), "Reporte_RAS.xlsx", use_container_width=True)
     except:
-        st.download_button("Descargar CSV", st.session_state.db_simulada.to_csv(index=False).encode('utf-8'), "Reporte.csv", "text/csv", use_container_width=True)
+        st.download_button("Descargar CSV", st.session_state.db_simulada.to_csv(index=False).encode('utf-8'), "Reporte.csv", use_container_width=True)
     
-    st.markdown("---")
     if st.button("Cerrar Sesión", use_container_width=True):
         st.session_state.auth = False
         st.rerun()
 
-# =========================================================
-# 4. INTERFAZ DE PESTAÑAS (TABS)
-# =========================================================
-st.title("Plataforma de Monitoreo RAS - El Remanso")
 tab1, tab2 = st.tabs(["Monitor en Tiempo Real", "Análisis de Entrenamiento"])
 
 with tab1:
@@ -142,12 +130,13 @@ with tab1:
     with g2: st.plotly_chart(render_gauge(nueva_medicion["pH"], "pH", "pts", RANGOS_PH), use_container_width=True)
     with g3: st.plotly_chart(render_gauge(nueva_medicion["TDS"], "SÓLIDOS TDS", "ppm", TDS_ESCALA_GAUGE, custom_range=[0, 300]), use_container_width=True)
 
-    # Gráficas
+    # Gráficas Corregidas
     st.markdown("### Análisis de Tendencias")
     c1, c2 = st.columns(2)
     with c1:
         f_temp = px.line(st.session_state.db_simulada, x="Fecha_Hora", y="Temperatura", markers=True, 
                          title="Monitoreo de Temperatura", color_discrete_sequence=["#d63031"], template="plotly_white")
+        # Ajustamos el eje Y para que siempre se vea el rango completo solicitado
         f_temp.update_yaxes(range=[TEMP_MIN_SIM - 0.1, TEMP_MAX_SIM + 0.1])
         st.plotly_chart(f_temp, use_container_width=True)
     with c2:
